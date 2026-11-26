@@ -17,10 +17,10 @@ export interface AudioDiagnostics {
 }
 
 const PREFERRED_VOICE_PATTERNS: readonly { pattern: RegExp; score: number }[] = [
-  { pattern: /Samantha/i, score: 100 },
-  { pattern: /Ava.*Premium|Ava.*Enhanced|Ava/i, score: 98 },
+  { pattern: /Ava.*Premium|Ava.*Enhanced|Ava/i, score: 100 },
+  { pattern: /Samantha/i, score: 98 },
   { pattern: /Google US English/i, score: 96 },
-  { pattern: /Microsoft Aria|Microsoft Jenny|Microsoft Ana/i, score: 95 },
+  { pattern: /Microsoft Ava|Microsoft Emma|Microsoft Jenny|Microsoft Aria/i, score: 95 },
   { pattern: /Siri.*Female|Karen|Tessa|Moira/i, score: 90 },
   { pattern: /Natural|Neural|Online/i, score: 85 },
   { pattern: /en-US/i, score: 60 },
@@ -39,6 +39,14 @@ function scoreVoice(voice: SpeechSynthesisVoice): number {
   return score;
 }
 
+export function normalizeClipId(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 90);
+}
+
 function getAudioAssetUrl(fileName: string): string {
   const base = import.meta.env.BASE_URL || '/';
   const normalizedBase = base.endsWith('/') ? base : `${base}/`;
@@ -46,11 +54,12 @@ function getAudioAssetUrl(fileName: string): string {
 }
 
 /**
- * Studio-quality Neural Human Voice Engine with automatic Web Speech fallback.
- * - Loads public/assets/audio/manifest.json containing pre-rendered en-US-JennyNeural MP3 clips
- *   for every word, curative, Pokémon name, A–Z letter, phonics sound, and encouragement phrase.
- * - Plays genuine human neural audio via HTMLAudioElement on Chrome, Safari, iOS, and Android.
- * - Falls back seamlessly to hardened Web Speech API for any dynamic phrase not in the manifest.
+ * 100% Consistent Studio-Quality Neural Human Voice Engine (en-US-AvaMultilingualNeural).
+ * - Loads public/assets/audio/manifest.json containing pre-rendered MP3 clips for every
+ *   word, intro, blending step/chunk, Pokémon name, A–Z letter, phoneme, clinic prompt,
+ *   Gym move, Blending Dojo step, Switch Menu Trainer prompt, town, badge, and UI cue.
+ * - Pre-buffers upcoming blending clips for instant 0ms Paw-Slide playback.
+ * - Keeps Web Speech API strictly as an offline-only emergency fallback.
  */
 class SpeechGuidanceEngine {
   private enabled = true;
@@ -63,6 +72,7 @@ class SpeechGuidanceEngine {
   private pendingTimer: number | null = null;
   private manifest: Record<string, string> = {};
   private manifestLoaded = false;
+  private audioCache = new Map<string, HTMLAudioElement>();
 
   constructor() {
     this.initVoices();
@@ -160,7 +170,7 @@ class SpeechGuidanceEngine {
       voiceCount: voices.length,
       activeVoiceName:
         this.manifestLoaded && clipCount > 0
-          ? 'Jenny Neural (Human Voice Pack)'
+          ? 'Ava Neural (100% Human Voice Pack)'
           : picked?.name ?? (voices[0]?.name || 'Browser Default'),
       humanVoiceClips: clipCount,
       humanVoiceReady: this.manifestLoaded && clipCount > 0,
@@ -230,8 +240,31 @@ class SpeechGuidanceEngine {
   }
 
   /**
-   * Plays a pre-rendered neural human MP3 clip by manifest key (e.g., "word:sun", "pokemon:onix").
-   * Falls back seamlessly to Web Speech API if the clip isn't found or cannot play.
+   * Pre-buffers a list of manifest keys (e.g., all blending steps for the active word)
+   * so Paw-Slide audio responds with 0ms lag!
+   */
+  public preloadClips(clipKeys: readonly string[]): void {
+    if (typeof Audio === 'undefined') return;
+    for (const key of clipKeys) {
+      const fileName = this.manifest[key];
+      if (!fileName || this.audioCache.has(fileName)) continue;
+      try {
+        const audio = new Audio(getAudioAssetUrl(fileName));
+        audio.preload = 'auto';
+        this.audioCache.set(fileName, audio);
+        if (this.audioCache.size > 48) {
+          const firstKey = this.audioCache.keys().next().value;
+          if (firstKey) this.audioCache.delete(firstKey);
+        }
+      } catch {
+        // ignore in jsdom
+      }
+    }
+  }
+
+  /**
+   * Plays a pre-rendered neural human MP3 clip by manifest key (e.g., "word:sun", "blend:suh").
+   * Uses the pre-buffered Audio element when available and falls back to Web Speech only if offline.
    */
   public playClipKey(
     clipKey: string,
@@ -267,10 +300,19 @@ class SpeechGuidanceEngine {
 
     return new Promise<void>((resolve) => {
       try {
-        const audio = new Audio(getAudioAssetUrl(fileName));
-        audio.preload = 'auto';
+        const cached = this.audioCache.get(fileName);
+        const audio = cached ?? new Audio(getAudioAssetUrl(fileName));
+        if (!cached) {
+          audio.preload = 'auto';
+          this.audioCache.set(fileName, audio);
+        }
+        try {
+          audio.currentTime = 0;
+        } catch {
+          // ignore if not yet seekable
+        }
         audio.playbackRate =
-          options.rateOverride ?? (this.speed === 'slow' ? 0.94 : 1.06);
+          options.rateOverride ?? (this.speed === 'slow' ? 0.95 : 1.06);
         this.activeAudio = audio;
 
         let settled = false;
@@ -278,6 +320,8 @@ class SpeechGuidanceEngine {
           if (settled) return;
           settled = true;
           window.clearTimeout(safetyTimer);
+          audio.onended = null;
+          audio.onerror = null;
           if (this.activeAudio === audio) {
             this.activeAudio = null;
           }
@@ -304,6 +348,34 @@ class SpeechGuidanceEngine {
         }
       }
     });
+  }
+
+  /**
+   * Plays a sequence of pre-rendered neural MP3 clips smoothly back-to-back
+   * (used by ElkoninBoard "Sound It Out" so it uses 100% Ava Neural voice!).
+   */
+  public async playClipSequence(
+    steps: readonly { clipKey: string; fallbackText?: string }[],
+    gapMs = 110,
+  ): Promise<void> {
+    if (!this.enabled || steps.length === 0) return;
+    const seqToken = ++this.activeToken;
+    this.stopActiveAudio();
+
+    for (let i = 0; i < steps.length; i += 1) {
+      if (seqToken !== this.activeToken) return;
+      const step = steps[i]!;
+      await this.playClipKey(step.clipKey, step.fallbackText, { interrupt: false });
+      if (seqToken !== this.activeToken) return;
+      if (i < steps.length - 1 && gapMs > 0) {
+        await new Promise<void>((resolve) => {
+          this.pendingTimer = window.setTimeout(() => {
+            this.pendingTimer = null;
+            resolve();
+          }, gapMs);
+        });
+      }
+    }
   }
 
   public speak(
@@ -442,33 +514,92 @@ class SpeechGuidanceEngine {
     const upper = letters.toUpperCase();
     const letterName = LETTER_NAMES[upper];
 
-    // Prefer our studio neural phoneme MP3 clip!
+    // Always prefer our studio Ava Neural phoneme MP3 clip!
     if (this.manifest[`phoneme:${phonemeKey}`]) {
       return this.playClipKey(`phoneme:${phonemeKey}`, info.ttsCue);
     }
 
     if (mode === 'names-and-sounds' && letterName) {
       const phrase = includeKeyword
-        ? `${letterName} says ${info.ttsCue}, like ${info.keyword}`
-        : `${letterName}, ${info.ttsCue}`;
-      return this.speak(phrase, { rateOverride: 0.8 });
+        ? `${letterName}, like ${info.keyword}`
+        : `${letterName}`;
+      return this.speak(phrase, { rateOverride: 0.84 });
     }
 
     const phrase = includeKeyword
       ? `${info.ttsCue}, like ${info.keyword}`
       : info.ttsCue;
-    return this.speak(phrase, { rateOverride: 0.78 });
+    return this.speak(phrase, { rateOverride: 0.82 });
   }
 
-  public speakBlendCue(cueText: string): Promise<void> {
+  /**
+   * Resolves the best neural manifest key for a Paw-Slide blending step.
+   */
+  public resolveBlendClipKey(cueText: string, phonemeKey?: string): string {
     const clean = cueText.trim().toLowerCase();
-    if (this.manifest[`word:${clean}`]) {
-      return this.playClipKey(`word:${clean}`, cueText);
+    if (this.manifest[`blend:${clean}`]) return `blend:${clean}`;
+    if (this.manifest[`word:${clean}`]) return `word:${clean}`;
+    if (phonemeKey && this.manifest[`phoneme:${phonemeKey}`]) {
+      return `phoneme:${phonemeKey}`;
     }
-    return this.speak(cueText, {
-      rateOverride: this.speed === 'slow' ? 0.76 : 0.88,
-      pitch: 1.06,
+    return `blend:${clean}`;
+  }
+
+  public speakBlendCue(cueText: string, phonemeKey?: string): Promise<void> {
+    const key = this.resolveBlendClipKey(cueText, phonemeKey);
+    return this.playClipKey(key, cueText, {
+      rateOverride: this.speed === 'slow' ? 0.96 : 1.06,
     });
+  }
+
+  public speakHeartHint(heartHint: string): Promise<void> {
+    return this.playClipKey(`heart:${normalizeClipId(heartHint)}`, heartHint);
+  }
+
+  public speakClinicPrompt(wordId: string, fallback: string): Promise<void> {
+    return this.playClipKey(`clinic:${wordId}`, fallback);
+  }
+
+  public speakMoveCallout(moveId: string, fallback: string): Promise<void> {
+    return this.playClipKey(`move:${moveId}`, fallback);
+  }
+
+  public speakMoveReady(moveId: string, fallback: string): Promise<void> {
+    return this.playClipKey(`move_ready:${moveId}`, fallback);
+  }
+
+  public speakTown(nodeId: string, locked: boolean, fallback: string): Promise<void> {
+    const key = locked ? `town_locked:${nodeId}` : `town:${nodeId}`;
+    return this.playClipKey(key, fallback);
+  }
+
+  public speakBadge(badgeId: string, fallback: string): Promise<void> {
+    return this.playClipKey(`badge:${badgeId}`, fallback);
+  }
+
+  public speakAccessory(accId: string, wearingNow: boolean, fallback: string): Promise<void> {
+    const key = wearingNow ? `acc_on:${accId}` : `acc_off:${accId}`;
+    return this.playClipKey(key, fallback);
+  }
+
+  public speakDojoStep(chainId: string, stepIndex: number, fallback: string): Promise<void> {
+    return this.playClipKey(`dojo_step:${chainId}_${stepIndex}`, fallback);
+  }
+
+  public speakDojoSwapOk(chainId: string, stepIndex: number, fallback: string): Promise<void> {
+    return this.playClipKey(`dojo_ok:${chainId}_${stepIndex}`, fallback);
+  }
+
+  public speakDojoDone(chainId: string, fallback: string): Promise<void> {
+    return this.playClipKey(`dojo_done:${chainId}`, fallback);
+  }
+
+  public speakMenuCard(
+    cardId: string,
+    kind: 'prompt' | 'hint' | 'glow' | 'win',
+    fallback: string,
+  ): Promise<void> {
+    return this.playClipKey(`menu_${kind}:${cardId}`, fallback);
   }
 
   public speakWordIntroduction(

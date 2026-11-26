@@ -18,6 +18,7 @@ interface TrajectoryCoords {
   targetX: number;
   targetY: number;
   groundY: number;
+  nameplateTop: number;
 }
 
 /**
@@ -92,8 +93,9 @@ export const PokeBallCaptureLayer: React.FC<PokeBallCaptureLayerProps> = ({
     startX: 170,
     startY: 160,
     targetX: 740,
-    targetY: 145,
-    groundY: 205,
+    targetY: 165,
+    groundY: 220,
+    nameplateTop: 80,
   });
   const [beat, setBeat] = useState<CaptureBeat>('arc');
   const [wiggleNum, setWiggleNum] = useState(0);
@@ -122,15 +124,20 @@ export const PokeBallCaptureLayer: React.FC<PokeBallCaptureLayerProps> = ({
     const aRect = arenaEl.getBoundingClientRect();
     const eRect = eeveeEl.getBoundingClientRect();
     const tRect = targetEl.getBoundingClientRect();
+    // Measure the actual Pokémon sprite box (below the nameplate) so the Poké Ball
+    // arcs directly into the sprite and settles on the ground without ever touching the nameplate!
+    const spriteEl = targetEl.querySelector('.scene-target-visual');
+    const sRect = spriteEl ? spriteEl.getBoundingClientRect() : tRect;
 
-    if (aRect.width < 40 || tRect.width < 20) return;
+    if (aRect.width < 40 || sRect.width < 20) return;
 
     const measured: TrajectoryCoords = {
       startX: eRect.left - aRect.left + eRect.width * 0.65,
-      startY: eRect.top - aRect.top + eRect.height * 0.36,
-      targetX: tRect.left - aRect.left + tRect.width * 0.5,
-      targetY: tRect.top - aRect.top + tRect.height * 0.42,
-      groundY: tRect.bottom - aRect.top - 42,
+      startY: eRect.top - aRect.top + eRect.height * 0.48,
+      targetX: sRect.left - aRect.left + sRect.width * 0.5,
+      targetY: sRect.top - aRect.top + sRect.height * 0.5,
+      groundY: sRect.bottom - aRect.top - 22,
+      nameplateTop: tRect.top - aRect.top,
     };
 
     setCoords(measured);
@@ -338,8 +345,9 @@ export const PokeBallCaptureLayer: React.FC<PokeBallCaptureLayerProps> = ({
           className="vfx-callout-pill vfx-callout-pill--catch"
           style={{
             left: `${coords.targetX}px`,
-            top: `${Math.max(12, coords.targetY - 104)}px`,
+            top: `${Math.max(8, coords.nameplateTop - 66)}px`,
             transform: 'translateX(-50%)',
+            whiteSpace: 'nowrap',
           }}
         >
           Gotcha! {targetName}!

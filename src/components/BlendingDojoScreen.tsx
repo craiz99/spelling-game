@@ -60,8 +60,12 @@ export const BlendingDojoScreen: React.FC<BlendingDojoScreenProps> = ({
     setSwapPhase(initialPhase);
     setWrongCount(0);
     setMood('happy');
-    void speechEngine.speak(`${step.spokenPrompt} ${step.everydaySentence}`);
-  }, [chainIndex, stepIndex, step]);
+    void speechEngine.speakDojoStep(
+      chain.id,
+      stepIndex,
+      `${step.spokenPrompt} ${step.everydaySentence}`,
+    );
+  }, [chainIndex, stepIndex, step, chain.id]);
 
   const swapChoices = useMemo(() => {
     if (step.changedIndex === null) return [];
@@ -92,7 +96,7 @@ export const BlendingDojoScreen: React.FC<BlendingDojoScreenProps> = ({
       soundEffects.playCorrectPop();
       setMood('sparkle');
       const msg = `Yes! You swapped ${step.previousLetters} to ${expected.letters}! Now slide to blend ${step.word}!`;
-      void speechEngine.speak(msg);
+      void speechEngine.speakDojoSwapOk(chain.id, stepIndex, msg);
       setSwapPhase('blend');
       return;
     }
@@ -106,17 +110,17 @@ export const BlendingDojoScreen: React.FC<BlendingDojoScreenProps> = ({
       soundEffects.playGentleWoodChime();
       const msg = `That says ${chosenInfo.ttsCue}. For ${step.word}, we need ${expectedInfo.ttsCue} like ${expectedInfo.keyword}!`;
       setMood('encouraging');
-      void speechEngine.speak(msg);
+      void speechEngine.speakUiCue('try_again', msg);
     } else if (nextWrong === 2) {
       soundEffects.playHintSparkle();
       const msg = `Look for the glowing tile! We need ${expectedInfo.ttsCue} to make ${step.word}!`;
       setMood('encouraging');
-      void speechEngine.speak(msg);
+      void speechEngine.speakUiCue('glow_hint', msg);
     } else {
       soundEffects.playCorrectPop();
       const msg = `Eevee popped ${expected.letters} right in! Now blend ${step.word}!`;
       setMood('happy');
-      void speechEngine.speak(msg);
+      void speechEngine.speakUiCue('teamwork', msg);
       setSwapPhase('blend');
     }
   };
@@ -127,7 +131,7 @@ export const BlendingDojoScreen: React.FC<BlendingDojoScreenProps> = ({
     soundEffects.playCorrectPop();
     const msg = `Eevee swapped in ${expected.letters}! Now let's slide and blend ${step.word}!`;
     setMood('happy');
-    void speechEngine.speak(msg);
+    void speechEngine.speakUiCue('teamwork', msg);
     setSwapPhase('blend');
   };
 
@@ -140,7 +144,7 @@ export const BlendingDojoScreen: React.FC<BlendingDojoScreenProps> = ({
       setSwapPhase('complete');
       setMood('cheering');
       const msg = `Hooray! You finished the whole word chain: ${chain.steps.map((s) => s.word).join(', ')}!`;
-      void speechEngine.speak(msg);
+      void speechEngine.speakDojoDone(chain.id, msg);
       onChainComplete(chain.id);
     }
   };
@@ -254,7 +258,13 @@ export const BlendingDojoScreen: React.FC<BlendingDojoScreenProps> = ({
               pokemonId={step.pokemonId}
               label={step.word}
               size="md"
-              onTap={() => void speechEngine.speak(`${step.spokenPrompt} ${step.everydaySentence}`)}
+              onTap={() =>
+                void speechEngine.speakDojoStep(
+                  chain.id,
+                  stepIndex,
+                  `${step.spokenPrompt} ${step.everydaySentence}`,
+                )
+              }
             />
 
             <div className="minimal-battle-tray__center">
@@ -335,7 +345,13 @@ export const BlendingDojoScreen: React.FC<BlendingDojoScreenProps> = ({
                 id="btn-dojo-hear"
                 type="button"
                 className="icon-circle-btn icon-circle-btn--blue"
-                onClick={() => void speechEngine.speak(`${step.spokenPrompt} ${step.everydaySentence}`)}
+                onClick={() =>
+                  void speechEngine.speakDojoStep(
+                    chain.id,
+                    stepIndex,
+                    `${step.spokenPrompt} ${step.everydaySentence}`,
+                  )
+                }
                 aria-label="Hear Sound"
               >
                 <SpeakerIcon size={26} color="#FFFFFF" />
@@ -361,7 +377,7 @@ export const BlendingDojoScreen: React.FC<BlendingDojoScreenProps> = ({
               label={step.word}
               caption={step.word}
               size="sm"
-              onTap={() => void speechEngine.speak(step.word.toLowerCase())}
+              onTap={() => void speechEngine.speakWord(step.word)}
             />
             <PawSlideBlender
               units={step.units}

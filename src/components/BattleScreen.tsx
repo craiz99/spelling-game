@@ -120,7 +120,7 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
 
     if (battle.phase === 'clinic-pick' && battle.clinicPatient) {
       setEeveeMood('encouraging');
-      void speechEngine.speak(battle.clinicPatient.prompt);
+      void speechEngine.speakClinicPrompt(currentWord.id, battle.clinicPatient.prompt);
       return;
     }
 
@@ -179,7 +179,7 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
 
     // Pewter Rock Gym, Cerulean Water Gym, Champion Stadium — Elemental Move Battle!
     soundEffects.playAttackSparkle(battle.activeMove.elementType);
-    void speechEngine.speak(battle.activeMove.spokenCallout);
+    void speechEngine.speakMoveCallout(battle.activeMove.id, battle.activeMove.spokenCallout);
     onPokemonCaught(currentWord.pokemonId, zone.name);
 
     const timer = window.setTimeout(() => {
@@ -204,7 +204,7 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
   const handleCoachMessage = useCallback(
     (_text: string, speech: string, mood: 'happy' | 'encouraging' | 'proud' | 'sparkle') => {
       setEeveeMood(mood);
-      void speechEngine.speak(speech);
+      void speechEngine.speakUiCue('try_again', speech);
     },
     [],
   );
@@ -225,12 +225,16 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
       setBattle((prev) => completeClinicMedicinePick(prev));
     } else if (nextWrong === 2) {
       soundEffects.playHintSparkle();
-      void speechEngine.speak(
+      void speechEngine.speakMenuCard(
+        battle.clinicPatient.targetCurative.id,
+        'glow',
         `Look for the glowing bottle! ${battle.clinicPatient.targetCurative.spokenHint}`,
       );
     } else {
       soundEffects.playGentleWoodChime();
-      void speechEngine.speak(
+      void speechEngine.speakMenuCard(
+        battle.clinicPatient.targetCurative.id,
+        'hint',
         `Good try! ${battle.clinicPatient.targetCurative.spokenHint}`,
       );
     }
@@ -340,23 +344,23 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
 
       {/* Upper Living Painted Kanto Arena */}
       <section ref={arenaRef} className="scene-arena" aria-label={`${zone.name} arena`}>
-        {/* Left Side: Partner Eevee */}
+        {/* Left Side: Partner Eevee (Nameplate Above Sprite) */}
         <div
           ref={eeveeRef}
           className={`scene-actor scene-actor--left ${isLunging ? 'scene-actor--lunge' : ''}`}
         >
+          <div className="actor-nameplate">
+            <span className="actor-nameplate__name">Eevee</span>
+          </div>
           <div className="actor-ground-shadow" />
           <EeveeAvatar
             size={150}
             mood={eeveeMood}
             equipped={progress.equippedAccessories}
           />
-          <div className="actor-nameplate">
-            <span className="actor-nameplate__name">Eevee</span>
-          </div>
         </div>
 
-        {/* Right Side: Wild Pokémon / Sick Clinic Patient / Gym Challenger with Visible Nameplate! */}
+        {/* Right Side: Wild Pokémon / Sick Clinic Patient / Gym Challenger with Nameplate ABOVE Sprite! */}
         {currentWord && battle.phase !== 'victory' && (
           <div
             ref={targetRef}
@@ -369,30 +373,7 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
               }
             }}
           >
-            <div className="actor-ground-shadow" />
-            <div
-              className={`scene-target-visual ${
-                battle.clinicPatient && battle.phase !== 'move-animation'
-                  ? `scene-target-visual--${battle.clinicPatient.status.toLowerCase()}`
-                  : ''
-              }`}
-            >
-              <PokemonSprite
-                pokemonId={currentWord.pokemonId}
-                name={currentWord.pokemonName}
-                size={146}
-              />
-
-              {/* Live Animated Status Effect Overlay on Sick Clinic Patients! */}
-              {battle.clinicPatient && (
-                <StatusEffectOverlay
-                  status={battle.clinicPatient.status}
-                  cured={battle.phase === 'move-animation'}
-                />
-              )}
-            </div>
-
-            {/* Always-Visible Tappable Pokémon Nameplate (tap to hear human pronunciation!) */}
+            {/* Always-Visible Tappable Pokémon Nameplate ABOVE Sprite (never obscured by Poké Ball!) */}
             <button
               type="button"
               className="actor-nameplate actor-nameplate--btn"
@@ -417,6 +398,29 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
               )}
               <SpeakerIcon size={14} color="#2C98F0" />
             </button>
+
+            <div className="actor-ground-shadow" />
+            <div
+              className={`scene-target-visual ${
+                battle.clinicPatient && battle.phase !== 'move-animation'
+                  ? `scene-target-visual--${battle.clinicPatient.status.toLowerCase()}`
+                  : ''
+              }`}
+            >
+              <PokemonSprite
+                pokemonId={currentWord.pokemonId}
+                name={currentWord.pokemonName}
+                size={146}
+              />
+
+              {/* Live Animated Status Effect Overlay on Sick Clinic Patients! */}
+              {battle.clinicPatient && (
+                <StatusEffectOverlay
+                  status={battle.clinicPatient.status}
+                  cured={battle.phase === 'move-animation'}
+                />
+              )}
+            </div>
           </div>
         )}
 
@@ -474,7 +478,12 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
                 type="button"
                 className="icon-circle-btn icon-circle-btn--blue"
                 style={{ width: '44px', height: '44px' }}
-                onClick={() => void speechEngine.speak(battle.clinicPatient!.prompt)}
+                onClick={() =>
+                  void speechEngine.speakClinicPrompt(
+                    currentWord?.id ?? '',
+                    battle.clinicPatient!.prompt,
+                  )
+                }
                 aria-label="Hear patient diagnosis"
               >
                 <SpeakerIcon size={20} color="#FFFFFF" />

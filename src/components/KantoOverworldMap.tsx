@@ -75,7 +75,9 @@ export const KantoOverworldMap: React.FC<KantoOverworldMapProps> = ({
     const unlocked = isLandmarkUnlocked(target, progress);
     if (!unlocked) {
       soundEffects.playGentleWoodChime();
-      void speechEngine.speak(
+      void speechEngine.speakTown(
+        target.id,
+        true,
         `${target.name} is next! Finish the glowing town first.`,
       );
       return;
@@ -107,7 +109,7 @@ export const KantoOverworldMap: React.FC<KantoOverworldMapProps> = ({
           const doneTimer = window.setTimeout(() => {
             setIsWalking(false);
             onArriveNode(target.id);
-            void speechEngine.speak(`${target.name}!`);
+            void speechEngine.speakTown(target.id, false, `${target.name}!`);
           }, 240);
           walkTimersRef.current.push(doneTimer);
         }

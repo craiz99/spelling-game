@@ -65,7 +65,7 @@ export const ElkoninBoard: React.FC<ElkoninBoardProps> = ({
   const handleBoxTap = (unit: PhonemeUnit, isFilled: boolean) => {
     soundEffects.playTileTap();
     if (unit.isHeartWord && unit.heartHint) {
-      void speechEngine.speak(unit.heartHint);
+      void speechEngine.speakHeartHint(unit.heartHint);
       return;
     }
     void speechEngine.speakPhoneme(
@@ -174,8 +174,18 @@ export const ElkoninBoard: React.FC<ElkoninBoardProps> = ({
       'successive',
       word.successiveChunkCues,
     );
-    const spokenParts = cues.map((c) => c.speechText).join(' ... ');
-    void speechEngine.speak(spokenParts, { rateOverride: 0.78 });
+    const clipSequence = cues.map((cue) => {
+      if (cue.isFinalWord) {
+        const clean = word.displayWord.trim().toLowerCase();
+        return { clipKey: `word:${clean}`, fallbackText: word.displayWord };
+      }
+      const unit = word.units[cue.stepIndex];
+      return {
+        clipKey: speechEngine.resolveBlendClipKey(cue.speechText, unit?.phonemeKey),
+        fallbackText: cue.speechText,
+      };
+    });
+    void speechEngine.playClipSequence(clipSequence, 130);
   };
 
   // Full desktop keyboard support

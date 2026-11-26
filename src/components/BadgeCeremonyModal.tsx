@@ -15,7 +15,8 @@ export const BadgeCeremonyModal: React.FC<BadgeCeremonyModalProps> = ({
 }) => {
   useEffect(() => {
     soundEffects.playBadgeFanfare();
-    void speechEngine.speak(
+    void speechEngine.speakBadge(
+      badge.id,
       `Hooray! You earned the ${badge.name} Badge! ${badge.description}`,
     );
   }, [badge]);

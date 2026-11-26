@@ -80,10 +80,9 @@ export const LetterLabScreen: React.FC<LetterLabScreenProps> = ({
   const catchChoices = useMemo(() => buildLetterChoices(currentLetter), [currentLetter]);
 
   const speakSafariPrompt = useCallback((def: AlphabetLetterDef) => {
-    const info = getPhonemeInfo(def.phonemeKey);
     const fallback = def.isEndingSound
-      ? `Which letter makes the ${info.ttsCue} sound at the end of ${def.keyword}?`
-      : `Which letter makes the ${info.ttsCue} sound, like ${def.keyword}?`;
+      ? `Which letter makes the ${def.letter} sound, at the end of ${def.keyword}?`
+      : `Which letter makes the ${def.letter} sound, like ${def.keyword}?`;
     void speechEngine.speakLetter(def.letter, true, fallback);
   }, []);
 
@@ -222,35 +221,28 @@ export const LetterLabScreen: React.FC<LetterLabScreenProps> = ({
         })}
       </div>
 
-      {/* Active Safari Catch Arena: Eevee vs Wild Pokémon with Visible Nameplate */}
+      {/* Active Safari Catch Arena: Eevee vs Wild Pokémon with Nameplate ABOVE Sprite */}
       <section ref={arenaRef} className="scene-arena" aria-label="A to Z Safari Arena">
         <div ref={eeveeRef} className="scene-actor scene-actor--left">
+          <div className="actor-nameplate">
+            <span className="actor-nameplate__name">Eevee</span>
+          </div>
           <div className="actor-ground-shadow" />
           <EeveeAvatar
             size={150}
             mood={mood}
             equipped={progress.equippedAccessories}
           />
-          <div className="actor-nameplate">
-            <span className="actor-nameplate__name">Eevee</span>
-          </div>
         </div>
 
         <div
           ref={targetRef}
           className={`scene-actor scene-actor--right ${targetShrunk ? 'scene-actor--shrunk' : ''}`}
         >
-          <div className="actor-ground-shadow" />
-          <div className="scene-target-visual">
-            <PokemonSprite
-              pokemonId={currentLetter.pokemonId}
-              name={currentLetter.pokemonName}
-              size={146}
-            />
-          </div>
           <button
             type="button"
             className="actor-nameplate actor-nameplate--btn"
+            data-testid="safari-pokemon-nameplate"
             onClick={() => {
               soundEffects.playTileTap();
               void speechEngine.speakPokemon(currentLetter.pokemonName);
@@ -260,6 +252,14 @@ export const LetterLabScreen: React.FC<LetterLabScreenProps> = ({
             <span className="actor-nameplate__name">{currentLetter.pokemonName}</span>
             <SpeakerIcon size={14} color="#2C98F0" />
           </button>
+          <div className="actor-ground-shadow" />
+          <div className="scene-target-visual">
+            <PokemonSprite
+              pokemonId={currentLetter.pokemonId}
+              name={currentLetter.pokemonName}
+              size={146}
+            />
+          </div>
         </div>
 
         {catchPhase === 'throwing' && (

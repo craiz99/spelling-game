@@ -122,7 +122,7 @@ export const MenuTrainerScreen: React.FC<MenuTrainerScreenProps> = ({
     setCoachText(round.target.prompt);
     setMood('happy');
     setRoundBlended(false);
-    void speechEngine.speak(round.target.prompt);
+    void speechEngine.speakMenuCard(round.target.id, 'prompt', round.target.prompt);
   }, [round.target]);
 
   const handleSelectDeck = (nextDeck: MenuDeckId) => {
@@ -141,16 +141,16 @@ export const MenuTrainerScreen: React.FC<MenuTrainerScreenProps> = ({
     if (outcome.result === 'correct' || outcome.result === 'auto-assist-tier-3') {
       soundEffects.playCorrectPop();
       setMood('cheering');
-      void speechEngine.speak(outcome.coachingText);
+      void speechEngine.speakMenuCard(round.target.id, 'win', outcome.coachingText);
       onMenuWin();
     } else if (outcome.result === 'wrong-tier-1') {
       soundEffects.playGentleWoodChime();
       setMood('encouraging');
-      void speechEngine.speak(outcome.coachingText);
+      void speechEngine.speakMenuCard(round.target.id, 'hint', outcome.coachingText);
     } else {
       soundEffects.playHintSparkle();
       setMood('encouraging');
-      void speechEngine.speak(outcome.coachingText);
+      void speechEngine.speakMenuCard(round.target.id, 'glow', outcome.coachingText);
     }
   };
 
@@ -161,7 +161,7 @@ export const MenuTrainerScreen: React.FC<MenuTrainerScreenProps> = ({
     const msg = `Eevee found ${round.target.label}! Now let's slide and blend it together!`;
     setCoachText(msg);
     setMood('happy');
-    void speechEngine.speak(msg);
+    void speechEngine.speakMenuCard(round.target.id, 'win', msg);
     onMenuWin();
   };
 
@@ -301,7 +301,13 @@ export const MenuTrainerScreen: React.FC<MenuTrainerScreenProps> = ({
               type="button"
               className="switch-cta switch-cta--blue"
               style={{ minHeight: '48px', padding: '8px 16px', fontSize: '0.95rem' }}
-              onClick={() => void speechEngine.speak(round.target.prompt)}
+              onClick={() =>
+                void speechEngine.speakMenuCard(
+                  round.target.id,
+                  'prompt',
+                  round.target.prompt,
+                )
+              }
             >
               <SpeakerIcon size={18} />
               <span>Hear Again</span>

@@ -51,7 +51,7 @@ export const PawSlideBlender: React.FC<PawSlideBlenderProps> = ({
     [units, focusWord, blendingStyle, successiveChunkCues],
   );
 
-  // Reset whenever word changes
+  // Reset & pre-buffer neural blending clips whenever word changes
   useEffect(() => {
     autoTimersRef.current.forEach((id) => window.clearTimeout(id));
     autoTimersRef.current = [];
@@ -60,7 +60,14 @@ export const PawSlideBlender: React.FC<PawSlideBlenderProps> = ({
     setCompleted(false);
     lastSpokenStepRef.current = -1;
     draggingRef.current = false;
-  }, [focusWord, units]);
+
+    const preloadKeys = [
+      ...steps.map((st) => speechEngine.resolveBlendClipKey(st.speechCue, st.phonemeKey)),
+      `word:${(displayWord ?? focusWord).trim().toLowerCase()}`,
+      `word:${focusWord.trim().toLowerCase()}`,
+    ];
+    speechEngine.preloadClips(preloadKeys);
+  }, [focusWord, displayWord, units, steps]);
 
   useEffect(() => {
     return () => {
@@ -76,8 +83,7 @@ export const PawSlideBlender: React.FC<PawSlideBlenderProps> = ({
     setCompleted(true);
     setProgress(1);
     soundEffects.playBlendComplete();
-    const spokenTarget = (displayWord ?? focusWord).toLowerCase();
-    void speechEngine.speak(`${spokenTarget}!`, { rateOverride: 0.85, pitch: 1.12 });
+    void speechEngine.speakWord(displayWord ?? focusWord);
     const doneTimer = window.setTimeout(() => {
       onBlendComplete();
     }, compact ? 650 : 850);
@@ -97,7 +103,7 @@ export const PawSlideBlender: React.FC<PawSlideBlenderProps> = ({
       const step = steps[nextMap.activeStepIndex];
       if (step) {
         soundEffects.playBlendStep(step.index, steps.length);
-        void speechEngine.speakBlendCue(step.speechCue);
+        void speechEngine.speakBlendCue(step.speechCue, step.phonemeKey);
       }
     }
 
@@ -170,7 +176,8 @@ export const PawSlideBlender: React.FC<PawSlideBlenderProps> = ({
           finalizeBlend();
         } else {
           soundEffects.playBlendStep(cue.stepIndex, steps.length);
-          void speechEngine.speakBlendCue(cue.speechText);
+          const matchedStep = steps[cue.stepIndex];
+          void speechEngine.speakBlendCue(cue.speechText, matchedStep?.phonemeKey);
         }
       }, elapsed);
       autoTimersRef.current.push(timer);
@@ -224,7 +231,7 @@ export const PawSlideBlender: React.FC<PawSlideBlenderProps> = ({
                 className={`phoneme-bubble ${bubbleColorClass(0)}`}
                 onClick={() => {
                   soundEffects.playBlendStep(0, steps.length);
-                  if (steps[0]) void speechEngine.speakBlendCue(steps[0].speechCue);
+                  if (steps[0]) void speechEngine.speakBlendCue(steps[0].speechCue, steps[0].phonemeKey);
                 }}
               >
                 {units[0]!.letters}
@@ -237,7 +244,7 @@ export const PawSlideBlender: React.FC<PawSlideBlenderProps> = ({
                 className={`phoneme-bubble ${bubbleColorClass(1)}`}
                 onClick={() => {
                   soundEffects.playBlendStep(1, steps.length);
-                  if (steps[1]) void speechEngine.speakBlendCue(steps[1].speechCue);
+                  if (steps[1]) void speechEngine.speakBlendCue(steps[1].speechCue, steps[1].phonemeKey);
                 }}
               >
                 {units[1]!.letters}
@@ -257,7 +264,7 @@ export const PawSlideBlender: React.FC<PawSlideBlenderProps> = ({
                     onClick={() => {
                       soundEffects.playBlendStep(realIdx, steps.length);
                       const st = steps[realIdx];
-                      if (st) void speechEngine.speakBlendCue(st.speechCue);
+                      if (st) void speechEngine.speakBlendCue(st.speechCue, st.phonemeKey);
                     }}
                   >
                     {unit.letters}
@@ -280,7 +287,7 @@ export const PawSlideBlender: React.FC<PawSlideBlenderProps> = ({
                 onClick={() => {
                   soundEffects.playBlendStep(idx, steps.length);
                   const st = steps[idx];
-                  if (st) void speechEngine.speakBlendCue(st.speechCue);
+                  if (st) void speechEngine.speakBlendCue(st.speechCue, st.phonemeKey);
                 }}
               >
                 {unit.letters}

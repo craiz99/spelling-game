@@ -105,7 +105,9 @@ export const EeveeClosetModal: React.FC<EeveeClosetModalProps> = ({
                       onClick={() => {
                         soundEffects.playCorrectPop();
                         onToggleAccessory(acc);
-                        void speechEngine.speak(
+                        void speechEngine.speakAccessory(
+                          acc.id,
+                          !equipped,
                           equipped ? `Took off ${acc.name}` : `Eevee put on the ${acc.name}!`,
                         );
                       }}
@@ -163,7 +165,10 @@ export const EeveeClosetModal: React.FC<EeveeClosetModalProps> = ({
                       onClick={() => {
                         soundEffects.playAttackSparkle(move.elementType);
                         onSelectMove(move.id);
-                        void speechEngine.speak(`Eevee is ready to use ${move.name}!`);
+                        void speechEngine.speakMoveReady(
+                          move.id,
+                          `Eevee is ready to use ${move.name}!`,
+                        );
                       }}
                     >
                       <span>{move.name}</span>

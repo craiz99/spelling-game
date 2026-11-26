@@ -201,7 +201,7 @@ export const ParentSettingsModal: React.FC<ParentSettingsModalProps> = ({
             }}
           >
             {diagnostics.humanVoiceReady
-              ? `Human Voice Pack: Active (${diagnostics.humanVoiceClips} Neural Clips) · Fallback Voices: ${diagnostics.voiceCount}`
+              ? `100% Neural Human Voice Active: Ava Neural (${diagnostics.humanVoiceClips} Clips · Consistent across Blending, Safari & Battles)`
               : `Speech API: ${diagnostics.speechSupported ? 'Ready' : 'Unavailable'} · Active voice: ${diagnostics.activeVoiceName}`}
           </div>
 
@@ -257,7 +257,7 @@ export const ParentSettingsModal: React.FC<ParentSettingsModalProps> = ({
                 htmlFor="voice-picker-select"
                 style={{ fontWeight: 800, fontSize: '0.88rem', color: 'var(--ink-secondary)' }}
               >
-                Preferred Voice
+                Offline Fallback Voice
               </label>
               <select
                 id="voice-picker-select"
