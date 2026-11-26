@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { soundEffects } from '../audio/soundEffects';
 import { speechEngine } from '../audio/speechEngine';
+import { ALPHABET_LETTERS } from '../data/alphabet';
 import { CURRICULUM_WORDS } from '../data/curriculum';
 import { KANTO_POKEMON_CATALOG } from '../data/pokemonCatalog';
 import { KANTO_BADGES } from '../data/rewards';
@@ -8,7 +9,7 @@ import type { PlayerProgress } from '../data/types';
 import { PokemonSprite } from './PokemonSprite';
 import { BadgeGlyph, PokeBallIcon, SpeakerIcon, StarIcon } from './SwitchIcons';
 
-export type StickerBookTab = 'pokemon' | 'badges' | 'words';
+export type StickerBookTab = 'pokemon' | 'letters' | 'badges' | 'words';
 
 interface StickerBookModalProps {
   progress: PlayerProgress;
@@ -24,6 +25,7 @@ export const StickerBookModal: React.FC<StickerBookModalProps> = ({
   const [tab, setTab] = useState<StickerBookTab>(initialTab);
 
   const caughtSet = new Set(progress.caughtPokemonIds);
+  const masteredLettersSet = new Set(progress.masteredLetters);
   const practicedWords = CURRICULUM_WORDS.filter(
     (w) => (progress.wordMastery[w.id]?.attempts ?? 0) > 0,
   );
@@ -50,7 +52,11 @@ export const StickerBookModal: React.FC<StickerBookModalProps> = ({
         <div className="modal-header">
           <div>
             <h2 className="modal-title">
-              {tab === 'pokemon' ? 'My Captured Pokémon' : 'Trainer Sticker Book'}
+              {tab === 'pokemon'
+                ? 'My Captured Pokémon'
+                : tab === 'letters'
+                  ? 'A–Z Alphabet Progress'
+                  : 'Trainer Sticker Book'}
             </h2>
             <p style={{ margin: '2px 0 0', fontSize: '0.82rem', fontWeight: 700, color: 'var(--ink-muted)' }}>
               Saved automatically in your browser · {progress.caughtPokemonIds.length} / {KANTO_POKEMON_CATALOG.length} Kanto Pokémon caught · {progress.masteredLetters.length} / 26 Letters
@@ -75,7 +81,17 @@ export const StickerBookModal: React.FC<StickerBookModalProps> = ({
             className={`seg-btn ${tab === 'pokemon' ? 'seg-btn--active' : ''}`}
             onClick={() => setTab('pokemon')}
           >
-            Caught Pokémon ({progress.caughtPokemonIds.length}/{KANTO_POKEMON_CATALOG.length})
+            Pokémon ({progress.caughtPokemonIds.length}/{KANTO_POKEMON_CATALOG.length})
+          </button>
+          <button
+            id="tab-az-letters"
+            type="button"
+            role="tab"
+            aria-selected={tab === 'letters'}
+            className={`seg-btn ${tab === 'letters' ? 'seg-btn--active' : ''}`}
+            onClick={() => setTab('letters')}
+          >
+            A–Z ({progress.masteredLetters.length}/26)
           </button>
           <button
             id="tab-badges"
@@ -143,6 +159,57 @@ export const StickerBookModal: React.FC<StickerBookModalProps> = ({
                   {isCaught && detail?.lastTown && (
                     <span className="pokedex-card__town">{detail.lastTown}</span>
                   )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {tab === 'letters' && (
+          <div
+            data-testid="sticker-az-grid"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(96px, 1fr))',
+              gap: '10px',
+            }}
+          >
+            {ALPHABET_LETTERS.map((item) => {
+              const mastered = masteredLettersSet.has(item.letter);
+              return (
+                <button
+                  key={item.letter}
+                  id={`book-letter-${item.letter}`}
+                  type="button"
+                  className={`pokemon-book-card ${
+                    mastered ? 'pokemon-book-card--caught' : ''
+                  }`}
+                  style={{
+                    padding: '10px 8px',
+                    opacity: mastered ? 1 : 0.65,
+                    gap: '4px',
+                  }}
+                  onClick={() => {
+                    soundEffects.playTileTap();
+                    void speechEngine.speakLetter(item.letter, false, `${item.letter}, like ${item.keyword}!`);
+                  }}
+                  aria-label={`Letter ${item.letter}, ${item.keyword}${mastered ? ', mastered' : ''}`}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <StarIcon size={14} filled={mastered} />
+                    <span
+                      style={{
+                        fontFamily: 'var(--font-display)',
+                        fontSize: '1.25rem',
+                        fontWeight: 800,
+                      }}
+                    >
+                      {item.letter} {item.lower}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--ink-secondary)' }}>
+                    {item.keyword}
+                  </span>
                 </button>
               );
             })}

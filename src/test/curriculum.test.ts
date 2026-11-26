@@ -51,8 +51,12 @@ describe('Curriculum & Dataset Integrity', () => {
     for (const essential of ['GO', 'NO', 'IN', 'ON', 'UP', 'ME', 'SUN', 'MAP', 'RUN', 'BAG', 'PLAY', 'HELP', 'THE', 'YOU', 'GOOD', 'FRIEND']) {
       expect(labels.has(essential), `Missing everyday word ${essential}`).toBe(true);
     }
+    // Essential Let's Go Switch Menu words (spread across all levels!)
+    for (const menuWord of ['MAP', 'RUN', 'BAG', 'DEX', 'BERRY', 'SAVE', 'PARTY', 'FIGHT', 'TACKLE', 'EMBER', 'THUNDER SHOCK', 'BUZZY BUZZ']) {
+      expect(labels.has(menuWord), `Missing Switch menu word ${menuWord}`).toBe(true);
+    }
     // Essential Let's Go curatives
-    for (const curative of ['POTION', 'BURN HEAL', 'ICE HEAL', 'PARALYZE HEAL', 'FULL HEAL', 'ANTIDOTE', 'AWAKENING']) {
+    for (const curative of ['POTION', 'SUPER POTION', 'BURN HEAL', 'ICE HEAL', 'PARALYZE HEAL', 'FULL HEAL', 'ANTIDOTE', 'AWAKENING']) {
       expect(labels.has(curative), `Missing curative ${curative}`).toBe(true);
     }
     // Basic Pokémon attacks

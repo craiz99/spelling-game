@@ -90,14 +90,13 @@ const VALID_TILE_MODES = new Set<TileMode>(['single-letters', 'digraph-teams']);
 const VALID_ZONES = new Set<ZoneId>([1, 2, 3, 4, 5, 6]);
 const VALID_MAP_NODES = new Set<MapNodeId>([
   'pallet',
-  'oaks-lab',
   'viridian',
   'pewter',
   'center',
+  'saffron',
   'cerulean',
   'champion',
   'dojo',
-  'menu-camp',
   'tall-grass',
 ]);
 const VALID_BADGES = new Set<BadgeId>(KANTO_BADGES.map((b) => b.id));
@@ -271,10 +270,15 @@ export function loadProgress(storage?: StorageLike): PlayerProgress {
       ? (obj.selectedMoveId as PartnerMoveId)
       : 'tackle';
 
-    const currentMapNodeId: MapNodeId = VALID_MAP_NODES.has(
-      obj.currentMapNodeId as MapNodeId,
-    )
-      ? (obj.currentMapNodeId as MapNodeId)
+    const rawNodeId =
+      obj.currentMapNodeId === 'oaks-lab'
+        ? 'pallet'
+        : obj.currentMapNodeId === 'menu-camp'
+          ? 'saffron'
+          : obj.currentMapNodeId;
+
+    const currentMapNodeId: MapNodeId = VALID_MAP_NODES.has(rawNodeId as MapNodeId)
+      ? (rawNodeId as MapNodeId)
       : 'pallet';
 
     return {

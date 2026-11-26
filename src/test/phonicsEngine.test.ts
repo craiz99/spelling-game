@@ -68,7 +68,7 @@ describe('Phonics Engine — Scaffolding, Mirror Filter & 3-Tier Safety Net', ()
     const zone1And2 = [...getWordsByZone(1), ...getWordsByZone(2)];
     for (const word of zone1And2) {
       const challenge = buildWordChallenge(word, 'starter', () => 0.25);
-      const activeUnit = word.units[challenge.activeIndex!]!;
+      const activeUnit = challenge.units[challenge.activeIndex!]!;
       const distractors = challenge.tiles.filter((t) => t.id.startsWith('dist-'));
       for (const dist of distractors) {
         expect(

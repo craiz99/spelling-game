@@ -21,18 +21,14 @@ import { LockIcon, PokeBallIcon, SparkleIcon, StarIcon } from './SwitchIcons';
 interface KantoOverworldMapProps {
   progress: PlayerProgress;
   onArriveNode: (nodeId: MapNodeId) => void;
-  onEnterZone: (zoneId: ZoneId) => void;
-  onOpenLetterLab: () => void;
-  onOpenMenuTrainer: () => void;
+  onEnterLocation: (zoneId: ZoneId, landmarkId: MapNodeId) => void;
   onOpenBlendingDojo: () => void;
 }
 
 export const KantoOverworldMap: React.FC<KantoOverworldMapProps> = ({
   progress,
   onArriveNode,
-  onEnterZone,
-  onOpenLetterLab,
-  onOpenMenuTrainer,
+  onEnterLocation,
   onOpenBlendingDojo,
 }) => {
   const [eeveeNodeId, setEeveeNodeId] = useState<MapNodeId>(progress.currentMapNodeId);
@@ -54,20 +50,16 @@ export const KantoOverworldMap: React.FC<KantoOverworldMapProps> = ({
 
   const launchLandmark = (landmark: MapLandmark) => {
     soundEffects.playCorrectPop();
-    if (landmark.kind === 'letter-lab') {
-      onOpenLetterLab();
-      return;
-    }
     if (landmark.kind === 'dojo') {
       onOpenBlendingDojo();
       return;
     }
-    if (landmark.kind === 'menu-camp') {
-      onOpenMenuTrainer();
+    if (landmark.kind === 'city') {
+      onEnterLocation(3, landmark.id);
       return;
     }
     if (landmark.zoneId) {
-      onEnterZone(landmark.zoneId);
+      onEnterLocation(landmark.zoneId, landmark.id);
     }
   };
 
@@ -252,13 +244,9 @@ export const KantoOverworldMap: React.FC<KantoOverworldMapProps> = ({
               id={
                 landmark.zoneId && landmark.kind === 'town'
                   ? `zone-card-${landmark.zoneId}`
-                  : landmark.kind === 'letter-lab'
-                    ? 'btn-open-letter-lab'
-                    : landmark.kind === 'dojo'
-                      ? 'btn-open-blending-dojo'
-                      : landmark.kind === 'menu-camp'
-                        ? 'btn-open-menu-trainer'
-                        : `map-node-${landmark.id}`
+                  : landmark.kind === 'dojo'
+                    ? 'btn-open-blending-dojo'
+                    : `map-node-${landmark.id}`
               }
               type="button"
               className={`map-node map-node--${landmark.kind} ${
@@ -283,8 +271,6 @@ export const KantoOverworldMap: React.FC<KantoOverworldMapProps> = ({
               >
                 {!unlocked ? (
                   <LockIcon size={15} />
-                ) : landmark.kind === 'letter-lab' ? (
-                  <span className="map-node__az-badge">A–Z</span>
                 ) : landmark.kind === 'tall-grass' ? (
                   <SparkleIcon size={17} color="#2EB56B" />
                 ) : (
@@ -346,10 +332,6 @@ export const KantoOverworldMap: React.FC<KantoOverworldMapProps> = ({
                     {[0, 1, 2].map((i) => (
                       <StarIcon key={i} size={17} filled={i < selectedStars} />
                     ))}
-                  </div>
-                ) : selectedLandmark.kind === 'letter-lab' ? (
-                  <div className="town-arrival-card__sub">
-                    {progress.masteredLetters.length} / 26 ★
                   </div>
                 ) : (
                   <div className="town-arrival-card__sub">{selectedLandmark.challengeTitle}</div>

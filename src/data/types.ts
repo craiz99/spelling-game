@@ -2,14 +2,13 @@ export type ZoneId = 1 | 2 | 3 | 4 | 5 | 6;
 
 export type MapNodeId =
   | 'pallet'
-  | 'oaks-lab'
   | 'viridian'
   | 'pewter'
   | 'center'
+  | 'saffron'
   | 'cerulean'
   | 'champion'
   | 'dojo'
-  | 'menu-camp'
   | 'tall-grass';
 
 export type TownChallengeMode =
@@ -18,6 +17,7 @@ export type TownChallengeMode =
   | 'mart-quest'
   | 'clinic-heal'
   | 'gym-battle'
+  | 'city-challenge'
   | 'champion-gauntlet';
 
 export type ElementType =

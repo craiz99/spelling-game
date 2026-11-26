@@ -20,8 +20,8 @@ export const KANTO_BADGES: readonly BadgeDef[] = [
   {
     id: 'lets-go-menu-reader',
     name: "Let's Go Menu Reader",
-    subtitle: '5 Menu Trainer Wins',
-    description: 'Find 5 Nintendo Switch menu buttons in Menu Trainer!',
+    subtitle: '5 Switch Menu Wins',
+    description: 'Pick & spell 5 Nintendo Switch menu buttons across Kanto!',
     gradient: 'linear-gradient(135deg, #FDE047 0%, #CA8A04 100%)',
     iconType: 'controller',
   },

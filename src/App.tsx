@@ -27,8 +27,6 @@ import { BattleScreen } from './components/BattleScreen';
 import { BlendingDojoScreen } from './components/BlendingDojoScreen';
 import { EeveeClosetModal } from './components/EeveeClosetModal';
 import { KantoOverworldMap } from './components/KantoOverworldMap';
-import { LetterLabScreen } from './components/LetterLabScreen';
-import { MenuTrainerScreen } from './components/MenuTrainerScreen';
 import { ParentSettingsModal } from './components/ParentSettingsModal';
 import { StickerBookModal, type StickerBookTab } from './components/StickerBookModal';
 import { TopHud } from './components/TopHud';
@@ -36,9 +34,7 @@ import { WelcomeOverlay } from './components/WelcomeOverlay';
 
 type ActiveScreen =
   | { type: 'home' }
-  | { type: 'battle'; zoneId: ZoneId }
-  | { type: 'letter-lab' }
-  | { type: 'menu-trainer' }
+  | { type: 'battle'; zoneId: ZoneId; landmarkId?: MapNodeId }
   | { type: 'blending-dojo' };
 
 export interface AppProps {
@@ -116,9 +112,12 @@ export const App: React.FC<AppProps> = ({ skipWelcome = false }) => {
     (battle: BattleState) => {
       applyProgressUpdate((prev) => {
         const nextStars = prev.totalStars + battle.totalStarsEarned;
-        const nextCompletedZones = prev.completedZones.includes(battle.zoneId)
-          ? prev.completedZones
-          : [...prev.completedZones, battle.zoneId];
+        const marksZoneComplete =
+          battle.landmarkId !== 'saffron' && battle.landmarkId !== 'tall-grass';
+        const nextCompletedZones =
+          marksZoneComplete && !prev.completedZones.includes(battle.zoneId)
+            ? [...prev.completedZones, battle.zoneId]
+            : prev.completedZones;
         const nextPokemon = Array.from(
           new Set([...prev.caughtPokemonIds, ...battle.caughtPokemonIds]),
         );
@@ -160,10 +159,10 @@ export const App: React.FC<AppProps> = ({ skipWelcome = false }) => {
   );
 
   const handleMasterLetter = useCallback(
-    (letter: string, pokemonId: number) => {
+    (letter: string, pokemonId: number, townName: string) => {
       applyProgressUpdate((prev) => {
         const upper = letter.toUpperCase();
-        const withCatch = recordSinglePokemonCatch(prev, pokemonId, "Oak's A–Z Safari");
+        const withCatch = recordSinglePokemonCatch(prev, pokemonId, townName);
         const nextLetters = withCatch.masteredLetters.includes(upper)
           ? withCatch.masteredLetters
           : [...withCatch.masteredLetters, upper];
@@ -256,38 +255,24 @@ export const App: React.FC<AppProps> = ({ skipWelcome = false }) => {
         <KantoOverworldMap
           progress={progress}
           onArriveNode={handleArriveNode}
-          onEnterZone={(zoneId) => setScreen({ type: 'battle', zoneId })}
-          onOpenLetterLab={() => setScreen({ type: 'letter-lab' })}
-          onOpenMenuTrainer={() => setScreen({ type: 'menu-trainer' })}
+          onEnterLocation={(zoneId, landmarkId) =>
+            setScreen({ type: 'battle', zoneId, landmarkId })
+          }
           onOpenBlendingDojo={() => setScreen({ type: 'blending-dojo' })}
-        />
-      )}
-
-      {screen.type === 'letter-lab' && (
-        <LetterLabScreen
-          progress={progress}
-          onMasterLetter={handleMasterLetter}
-          onExit={() => setScreen({ type: 'home' })}
         />
       )}
 
       {screen.type === 'battle' && (
         <BattleScreen
           zoneId={screen.zoneId}
+          landmarkId={screen.landmarkId}
           progress={progress}
           onRecordWord={handleRecordWord}
           onPokemonCaught={handlePokemonCaught}
-          onBlendDone={handleBlendDone}
-          onBattleComplete={handleBattleComplete}
-          onExit={() => setScreen({ type: 'home' })}
-        />
-      )}
-
-      {screen.type === 'menu-trainer' && (
-        <MenuTrainerScreen
-          progress={progress}
+          onMasterLetter={handleMasterLetter}
           onMenuWin={handleMenuWin}
           onBlendDone={handleBlendDone}
+          onBattleComplete={handleBattleComplete}
           onExit={() => setScreen({ type: 'home' })}
         />
       )}
@@ -298,13 +283,6 @@ export const App: React.FC<AppProps> = ({ skipWelcome = false }) => {
           onBlendDone={handleBlendDone}
           onChainComplete={handleChainComplete}
           onExit={() => setScreen({ type: 'home' })}
-        />
-      )}
-
-      {showWelcome && (
-        <WelcomeOverlay
-          equipped={progress.equippedAccessories}
-          onStart={() => setShowWelcome(false)}
         />
       )}
 
@@ -334,14 +312,20 @@ export const App: React.FC<AppProps> = ({ skipWelcome = false }) => {
         />
       )}
 
-      {activeBadge && !showWelcome && screen.type === 'home' && (
+      {/* Celebratory Badge Ceremony waits cleanly until returning to the Kanto Map */}
+      {activeBadge && screen.type === 'home' && (
         <BadgeCeremonyModal
           badge={activeBadge}
           onDismiss={() => setBadgeQueue((q) => q.slice(1))}
         />
       )}
+
+      {showWelcome && (
+        <WelcomeOverlay
+          equipped={progress.equippedAccessories}
+          onStart={() => setShowWelcome(false)}
+        />
+      )}
     </div>
   );
 };
-
-export default App;

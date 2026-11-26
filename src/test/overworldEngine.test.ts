@@ -9,8 +9,13 @@ import {
 } from '../engine/overworldEngine';
 
 describe('Kanto Overworld Map Navigation Engine', () => {
-  it('places all 10 Kanto landmarks cleanly inside normalized map bounds', () => {
-    expect(KANTO_LANDMARKS).toHaveLength(10);
+  it('places all 9 cohesive Kanto landmarks cleanly inside normalized map bounds (no standalone Safari or Menu Camp)', () => {
+    expect(KANTO_LANDMARKS).toHaveLength(9);
+    const ids = KANTO_LANDMARKS.map((lm) => lm.id);
+    expect(ids).toContain('saffron');
+    expect(ids).not.toContain('oaks-lab');
+    expect(ids).not.toContain('menu-camp');
+
     for (const lm of KANTO_LANDMARKS) {
       expect(lm.x).toBeGreaterThan(5);
       expect(lm.x).toBeLessThan(95);
@@ -20,7 +25,7 @@ describe('Kanto Overworld Map Navigation Engine', () => {
     }
   });
 
-  it('computes valid multi-waypoint road paths between any two Kanto landmarks', () => {
+  it('computes valid multi-waypoint road paths between Pallet Town, Saffron City, and Champion Stadium', () => {
     const path = computeRoutePath('pallet', 'champion');
     expect(path[0]).toBe('pallet');
     expect(path[path.length - 1]).toBe('champion');
@@ -30,6 +35,10 @@ describe('Kanto Overworld Map Navigation Engine', () => {
       const current = getLandmarkById(path[i]!);
       expect(current.neighbors).toContain(path[i + 1]!);
     }
+
+    const toSaffron = computeRoutePath('pallet', 'saffron');
+    expect(toSaffron[0]).toBe('pallet');
+    expect(toSaffron[toSaffron.length - 1]).toBe('saffron');
   });
 
   it('assigns authentic gameplay challenge modes across all 6 towns including Pewter Rock Gym', () => {
@@ -41,12 +50,12 @@ describe('Kanto Overworld Map Navigation Engine', () => {
     expect(getTownChallengeMode(6)).toBe('champion-gauntlet');
   });
 
-  it('unlocks Pallet Town, Oak\'s A–Z Lab, and side landmarks by default and gates later towns until earned or overridden', () => {
+  it('unlocks Pallet Town, Saffron City, and side landmarks by default and gates later towns until earned or overridden', () => {
     const p = createDefaultProgress();
     expect(isLandmarkUnlocked(getLandmarkById('pallet'), p)).toBe(true);
-    expect(isLandmarkUnlocked(getLandmarkById('oaks-lab'), p)).toBe(true);
+    expect(isLandmarkUnlocked(getLandmarkById('tall-grass'), p)).toBe(true);
     expect(isLandmarkUnlocked(getLandmarkById('dojo'), p)).toBe(true);
-    expect(isLandmarkUnlocked(getLandmarkById('menu-camp'), p)).toBe(true);
+    expect(isLandmarkUnlocked(getLandmarkById('saffron'), p)).toBe(true);
     expect(isLandmarkUnlocked(getLandmarkById('champion'), p)).toBe(false);
 
     const unlockedAll = { ...p, settings: { ...p.settings, unlockAllZones: true } };
