@@ -1,5 +1,24 @@
 export type ZoneId = 1 | 2 | 3 | 4 | 5 | 6;
 
+export type MapNodeId =
+  | 'pallet'
+  | 'viridian'
+  | 'pewter'
+  | 'center'
+  | 'cerulean'
+  | 'champion'
+  | 'dojo'
+  | 'menu-camp'
+  | 'tall-grass';
+
+export type TownChallengeMode =
+  | 'wild-catch'
+  | 'forest-trail'
+  | 'mart-quest'
+  | 'clinic-heal'
+  | 'gym-battle'
+  | 'champion-gauntlet';
+
 export type ElementType =
   | 'Normal'
   | 'Water'
@@ -231,6 +250,8 @@ export interface PlayerProgress {
   battlesWon: number;
   totalBlends: number;
   menuTrainerWins: number;
+  bagItemsCount: number;
+  currentMapNodeId: MapNodeId;
   completedZones: ZoneId[];
   completedChains: string[];
   caughtPokemonIds: number[];

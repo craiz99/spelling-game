@@ -140,6 +140,43 @@ class SoundEffectsEngine {
     });
   }
 
+  public playFootstep(): void {
+    this.playTone(330, 0.055, { type: 'triangle', gain: 0.06, slideToFreq: 392 });
+  }
+
+  public playPokeBallThrow(): void {
+    this.playTone(360, 0.22, { type: 'sine', gain: 0.11, slideToFreq: 760 });
+    this.playTone(540, 0.12, { type: 'triangle', gain: 0.09, delaySec: 0.24, slideToFreq: 420 });
+    this.playTone(480, 0.1, { type: 'sine', gain: 0.08, delaySec: 0.45, slideToFreq: 560 });
+    this.playTone(540, 0.1, { type: 'sine', gain: 0.08, delaySec: 0.72, slideToFreq: 620 });
+  }
+
+  public playCatchSuccess(): void {
+    const notes = [
+      { f: 523.25, d: 0.11, t: 0 },
+      { f: 659.25, d: 0.11, t: 0.1 },
+      { f: 783.99, d: 0.11, t: 0.2 },
+      { f: 1046.5, d: 0.35, t: 0.32 },
+    ];
+    notes.forEach((n) => {
+      this.playTone(n.f, n.d, { type: 'triangle', gain: 0.14, delaySec: n.t });
+    });
+  }
+
+  /** Classic warm 5-note healing chime inspired by Pokémon Center */
+  public playHealingChime(): void {
+    const notes = [
+      { f: 587.33, d: 0.14, t: 0 },
+      { f: 587.33, d: 0.14, t: 0.16 },
+      { f: 587.33, d: 0.14, t: 0.32 },
+      { f: 493.88, d: 0.14, t: 0.48 },
+      { f: 783.99, d: 0.38, t: 0.64 },
+    ];
+    notes.forEach((n) => {
+      this.playTone(n.f, n.d, { type: 'sine', gain: 0.13, delaySec: n.t });
+    });
+  }
+
   public playBadgeFanfare(): void {
     const notes = [
       { f: 523.25, d: 0.12, t: 0 },

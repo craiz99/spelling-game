@@ -10,8 +10,8 @@ import {
 
 interface TopHudProps {
   totalStars: number;
+  bagItemsCount: number;
   voiceMuted: boolean;
-  onGoHome: () => void;
   onOpenStickerBook: () => void;
   onOpenCloset: () => void;
   onToggleMute: () => void;
@@ -20,10 +20,14 @@ interface TopHudProps {
 
 const HOLD_DURATION_MS = 1000;
 
+/**
+ * Minimal, floating Nintendo Switch HUD pills overlaid lightly at the top corners
+ * so the painted Kanto scenery fills the screen edge-to-edge!
+ */
 export const TopHud: React.FC<TopHudProps> = ({
   totalStars,
+  bagItemsCount,
   voiceMuted,
-  onGoHome,
   onOpenStickerBook,
   onOpenCloset,
   onToggleMute,
@@ -60,67 +64,70 @@ export const TopHud: React.FC<TopHudProps> = ({
   const handleGearKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
+      e.stopPropagation();
       clearHold();
       onOpenSettings();
     }
   };
 
   return (
-    <header className="top-hud" aria-label="Game navigation">
-      <div className="top-hud__left">
-        <button
-          id="hud-home-btn"
-          type="button"
-          className="top-hud__brand"
-          onClick={onGoHome}
-          aria-label="Return to Kanto Map"
-        >
-          <PokeBallIcon size={26} color="#E64545" />
-          <span>Let&apos;s Go, Spell with Eevee!</span>
-        </button>
-
-        <div className="top-hud__stars" aria-label={`${totalStars} Star Stickers`}>
-          <StarIcon size={18} filled />
+    <header className="floating-hud" aria-label="Game navigation">
+      <div className="floating-hud__group">
+        <div className="hud-stat-pill" aria-label={`${totalStars} Star Stickers`}>
+          <StarIcon size={20} filled />
           <span>{totalStars}</span>
+        </div>
+
+        <div
+          className="hud-stat-pill hud-stat-pill--bag"
+          aria-label={`${bagItemsCount} items in Adventure Bag`}
+          title="Items in your Adventure Bag"
+        >
+          <PokeBallIcon size={18} color="#2C98F0" />
+          <span>{bagItemsCount}</span>
         </div>
       </div>
 
-      <div className="top-hud__actions">
+      <div className="floating-hud__group">
         <button
           id="hud-sticker-book-btn"
           type="button"
-          className="hud-icon-btn"
+          className="hud-circle-btn"
           onClick={onOpenStickerBook}
+          aria-label="Open Trainer Sticker Book"
+          title="Sticker Book"
         >
-          <BookIcon size={18} />
-          <span>Sticker Book</span>
+          <BookIcon size={20} />
+          <span className="hud-circle-btn__text">Book</span>
         </button>
 
         <button
           id="hud-closet-btn"
           type="button"
-          className="hud-icon-btn"
+          className="hud-circle-btn"
           onClick={onOpenCloset}
+          aria-label="Open Eevee Dress-Up Closet"
+          title="Eevee Closet"
         >
-          <CrownIcon size={18} />
-          <span>Eevee Closet</span>
+          <CrownIcon size={20} />
+          <span className="hud-circle-btn__text">Closet</span>
         </button>
 
         <button
           id="hud-mute-btn"
           type="button"
-          className="hud-icon-btn"
+          className="hud-circle-btn"
           onClick={onToggleMute}
           aria-label={voiceMuted ? 'Unmute voice and chimes' : 'Mute voice and chimes'}
           title={voiceMuted ? 'Turn Sound On' : 'Mute Sound'}
         >
-          <SpeakerIcon size={19} muted={voiceMuted} />
+          <SpeakerIcon size={20} muted={voiceMuted} />
         </button>
 
         <button
           id="hud-settings-gear-btn"
           type="button"
-          className="hud-icon-btn hud-gear-btn"
+          className="hud-circle-btn hud-gear-btn"
           onPointerDown={beginHold}
           onPointerUp={clearHold}
           onPointerLeave={clearHold}
@@ -135,8 +142,7 @@ export const TopHud: React.FC<TopHudProps> = ({
               style={{ width: `${holdPercent}%` }}
             />
           )}
-          <GearIcon size={19} />
-          <span style={{ fontSize: '0.78rem', color: 'var(--ink-muted)' }}>Hold</span>
+          <GearIcon size={20} />
         </button>
       </div>
     </header>

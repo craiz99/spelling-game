@@ -9,6 +9,7 @@ import {
   triggerMenuEeveeHelp,
   type MenuRoundState,
 } from '../engine/menuTrainerEngine';
+import { getSceneUrl } from '../engine/overworldEngine';
 import { EeveeAvatar } from './EeveeAvatar';
 import { PawSlideBlender } from './PawSlideBlender';
 import { ItemSprite } from './PokemonSprite';
@@ -174,9 +175,22 @@ export const MenuTrainerScreen: React.FC<MenuTrainerScreenProps> = ({
     onBlendDone();
   };
 
+  const bgScene =
+    deckId === 'medicine'
+      ? 'scene-pokemon-center.jpg'
+      : deckId === 'attacks' || deckId === 'battle'
+        ? 'scene-cerulean-gym.jpg'
+        : 'scene-pewter-mart.jpg';
+
   return (
-    <main className="battle-screen" aria-label="Let's Go Switch Menu Trainer">
-      <div className="stage-header">
+    <main
+      className="scene-viewport"
+      style={{ backgroundImage: `url("${getSceneUrl(bgScene)}")` }}
+      aria-label="Let's Go Switch Menu Trainer"
+    >
+      <div className="scene-scrim" />
+
+      <div className="scene-top-bar">
         <button
           id="btn-menu-back"
           type="button"
@@ -187,7 +201,7 @@ export const MenuTrainerScreen: React.FC<MenuTrainerScreenProps> = ({
           }}
         >
           <BackChevronIcon size={18} />
-          <span>Map</span>
+          <span>Kanto Map</span>
         </button>
 
         <div className="stage-title-pill">Switch Menu Trainer</div>
@@ -210,177 +224,180 @@ export const MenuTrainerScreen: React.FC<MenuTrainerScreenProps> = ({
         </button>
       </div>
 
-      {/* 4 Nintendo Switch Pocket Deck Tabs */}
-      <div className="deck-tabs" role="tablist" aria-label="Menu Trainer decks">
-        {MENU_DECKS.map((deck) => {
-          const active = deck.id === deckId;
-          return (
-            <button
-              key={deck.id}
-              id={`menu-deck-${deck.id}`}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              className={`deck-tab ${active ? 'deck-tab--active' : ''}`}
-              style={active ? { borderBottomColor: deck.accentColor } : undefined}
-              onClick={() => handleSelectDeck(deck.id)}
-            >
-              {deck.shortTitle}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Spoken Prompt Banner */}
-      <section
-        className="switch-card"
-        style={{
-          padding: '16px 20px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '14px',
-          flexWrap: 'wrap',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1 }}>
-          <EeveeAvatar
-            size={72}
-            mood={mood}
-            equipped={progress.equippedAccessories}
-          />
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-              {round.target.statusTag && (
-                <span className={`status-pill status-pill--${round.target.statusTag}`}>
-                  {round.target.statusTag}
-                </span>
-              )}
-              {round.target.elementType && (
-                <span className={`type-pill type-pill--${round.target.elementType}`}>
-                  {round.target.elementType}
-                </span>
-              )}
-              <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--ink-muted)' }}>
-                {readingMode ? 'Icons hidden — read the letters!' : 'Listen & tap the Switch button!'}
-              </span>
-            </div>
-            <p
-              style={{
-                margin: 0,
-                fontFamily: 'var(--font-display)',
-                fontSize: '1.18rem',
-                fontWeight: 700,
-              }}
-            >
-              {coachText}
-            </p>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <button
-            id="btn-menu-replay-prompt"
-            type="button"
-            className="switch-cta switch-cta--blue"
-            style={{ minHeight: '50px', padding: '10px 18px' }}
-            onClick={() => void speechEngine.speak(round.target.prompt)}
-          >
-            <SpeakerIcon size={19} />
-            <span>Hear Again</span>
-          </button>
-
-          {!round.isSolved && (
-            <button
-              id="btn-menu-eevee-help"
-              type="button"
-              className="switch-cta switch-cta--caramel"
-              style={{ minHeight: '50px', padding: '10px 18px' }}
-              onClick={handleEeveeHelp}
-            >
-              <PawPrintIcon size={20} color="#FFFFFF" />
-              <span>Eevee Help!</span>
-            </button>
-          )}
-        </div>
-      </section>
-
-      {/* Switch Menu Grid */}
-      <section className="work-panel">
-        <div
-          className={`menu-grid ${round.cards.length <= 4 ? 'menu-grid--two' : ''}`}
-          role="group"
-          aria-label="Nintendo Switch menu choices"
-        >
-          {round.cards.map((item) => {
-            const isTarget = item.id === round.target.id;
-            const hideIcon = readingMode && !(round.isSolved && isTarget);
-            const highlight = (round.showBeacon && isTarget) || (round.isSolved && isTarget);
-
+      {/* 4 Switch Pocket Tabs floating over the painted scene */}
+      <div className="menu-trainer-body">
+        <div className="deck-tabs" role="tablist" aria-label="Menu Trainer decks">
+          {MENU_DECKS.map((deck) => {
+            const active = deck.id === deckId;
             return (
               <button
-                key={item.id}
-                id={`menu-card-${item.id}`}
+                key={deck.id}
+                id={`menu-deck-${deck.id}`}
                 type="button"
-                className={`menu-card-btn ${highlight ? 'switch-cursor-glow' : ''}`}
-                onClick={() => handleChooseCard(item.id)}
+                role="tab"
+                aria-selected={active}
+                className={`deck-tab ${active ? 'deck-tab--active' : ''}`}
+                style={active ? { borderBottomColor: deck.accentColor } : undefined}
+                onClick={() => handleSelectDeck(deck.id)}
               >
-                <span
-                  className="menu-card-btn__strip"
-                  style={{ background: item.accentColor }}
-                />
-                <span className="menu-card-btn__icon">
-                  <MenuCardIcon item={item} hidden={hideIcon} />
-                </span>
-                <span>
-                  <span className="menu-card-btn__label">{item.label}</span>
-                  {item.elementType && !hideIcon && (
-                    <span
-                      className={`type-pill type-pill--${item.elementType}`}
-                      style={{ marginTop: '4px' }}
-                    >
-                      {item.elementType}
-                    </span>
-                  )}
-                </span>
+                {deck.shortTitle}
               </button>
             );
           })}
         </div>
 
-        {/* Interactive Paw-Slide Blending Bar once found (or anytime to practice target!) */}
-        {round.isSolved && (
-          <div
-            style={{
-              width: '100%',
-              borderTop: '1.5px solid var(--border-soft)',
-              paddingTop: '18px',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '14px',
-            }}
-          >
-            <PawSlideBlender
-              units={round.target.units}
-              focusWord={round.target.focusWord}
-              displayWord={round.target.label}
-              blendingStyle={progress.settings.blendingStyle}
-              compact
-              onBlendComplete={handleBlendComplete}
+        {/* Prompt Banner */}
+        <section
+          className="switch-card"
+          style={{
+            padding: '14px 18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '14px',
+            flexWrap: 'wrap',
+            width: '100%',
+            maxWidth: '940px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+            <EeveeAvatar
+              size={66}
+              mood={mood}
+              equipped={progress.equippedAccessories}
             />
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                {round.target.statusTag && (
+                  <span className={`status-pill status-pill--${round.target.statusTag}`}>
+                    {round.target.statusTag}
+                  </span>
+                )}
+                {round.target.elementType && (
+                  <span className={`type-pill type-pill--${round.target.elementType}`}>
+                    {round.target.elementType}
+                  </span>
+                )}
+                <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--ink-muted)' }}>
+                  {readingMode ? 'Icons hidden — read the letters!' : 'Listen & tap the Switch button!'}
+                </span>
+              </div>
+              <p
+                style={{
+                  margin: 0,
+                  fontFamily: 'var(--font-display)',
+                  fontSize: '1.14rem',
+                  fontWeight: 700,
+                }}
+              >
+                {coachText}
+              </p>
+            </div>
+          </div>
 
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button
-              id="btn-menu-next-round"
+              id="btn-menu-replay-prompt"
               type="button"
               className="switch-cta switch-cta--blue"
-              onClick={handleNextRound}
+              style={{ minHeight: '48px', padding: '8px 16px', fontSize: '0.95rem' }}
+              onClick={() => void speechEngine.speak(round.target.prompt)}
             >
-              <span>{roundBlended ? 'Next Switch Prompt!' : 'Try Another Menu Word'}</span>
+              <SpeakerIcon size={18} />
+              <span>Hear Again</span>
             </button>
+
+            {!round.isSolved && (
+              <button
+                id="btn-menu-eevee-help"
+                type="button"
+                className="switch-cta switch-cta--caramel"
+                style={{ minHeight: '48px', padding: '8px 16px', fontSize: '0.95rem' }}
+                onClick={handleEeveeHelp}
+              >
+                <PawPrintIcon size={18} color="#FFFFFF" />
+                <span>Eevee Help!</span>
+              </button>
+            )}
           </div>
-        )}
-      </section>
+        </section>
+
+        {/* Switch Menu Grid & Blending Bar */}
+        <section className="scene-bottom-drawer" style={{ maxWidth: '940px' }}>
+          <div
+            className={`menu-grid ${round.cards.length <= 4 ? 'menu-grid--two' : ''}`}
+            role="group"
+            aria-label="Nintendo Switch menu choices"
+          >
+            {round.cards.map((item) => {
+              const isTarget = item.id === round.target.id;
+              const hideIcon = readingMode && !(round.isSolved && isTarget);
+              const highlight = (round.showBeacon && isTarget) || (round.isSolved && isTarget);
+
+              return (
+                <button
+                  key={item.id}
+                  id={`menu-card-${item.id}`}
+                  type="button"
+                  className={`menu-card-btn ${highlight ? 'switch-cursor-glow' : ''}`}
+                  onClick={() => handleChooseCard(item.id)}
+                >
+                  <span
+                    className="menu-card-btn__strip"
+                    style={{ background: item.accentColor }}
+                  />
+                  <span className="menu-card-btn__icon">
+                    <MenuCardIcon item={item} hidden={hideIcon} />
+                  </span>
+                  <span>
+                    <span className="menu-card-btn__label">{item.label}</span>
+                    {item.elementType && !hideIcon && (
+                      <span
+                        className={`type-pill type-pill--${item.elementType}`}
+                        style={{ marginTop: '4px' }}
+                      >
+                        {item.elementType}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {round.isSolved && (
+            <div
+              style={{
+                width: '100%',
+                borderTop: '1.5px solid var(--border-soft)',
+                paddingTop: '14px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '12px',
+              }}
+            >
+              <PawSlideBlender
+                units={round.target.units}
+                focusWord={round.target.focusWord}
+                displayWord={round.target.label}
+                blendingStyle={progress.settings.blendingStyle}
+                compact
+                onBlendComplete={handleBlendComplete}
+              />
+
+              <button
+                id="btn-menu-next-round"
+                type="button"
+                className="switch-cta switch-cta--blue"
+                onClick={handleNextRound}
+              >
+                <span>{roundBlended ? 'Next Switch Prompt!' : 'Try Another Menu Word'}</span>
+              </button>
+            </div>
+          )}
+        </section>
+      </div>
     </main>
   );
 };

@@ -205,7 +205,7 @@ export const ElkoninBoard: React.FC<ElkoninBoardProps> = ({
   });
 
   return (
-    <section className="work-panel" aria-label={`Spell ${word.displayWord}`}>
+    <div className="elkonin-stage-inner" aria-label={`Spell ${word.displayWord}`}>
       <div className="word-context-strip">
         <p className="word-context-sentence">{word.everydaySentence}</p>
       </div>
@@ -338,6 +338,6 @@ export const ElkoninBoard: React.FC<ElkoninBoardProps> = ({
           <span>Eevee Help!</span>
         </button>
       </div>
-    </section>
+    </div>
   );
 };

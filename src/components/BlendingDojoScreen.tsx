@@ -4,6 +4,7 @@ import { speechEngine } from '../audio/speechEngine';
 import { areMirrorConfusable, getPhonemeInfo } from '../data/phonemes';
 import { WORD_CHAINS } from '../data/wordChains';
 import type { EeveeMood, PlayerProgress } from '../data/types';
+import { getSceneUrl } from '../engine/overworldEngine';
 import { EeveeAvatar } from './EeveeAvatar';
 import { PawSlideBlender } from './PawSlideBlender';
 import { PokemonSprite } from './PokemonSprite';
@@ -53,7 +54,6 @@ export const BlendingDojoScreen: React.FC<BlendingDojoScreenProps> = ({
   const step = chain.steps[stepIndex] ?? chain.steps[0]!;
 
   useEffect(() => {
-    // First word in a chain starts directly with Paw-Slide blending; steps 1..3 start with single-sound swap!
     const initialPhase = step.changedIndex === null ? 'blend' : 'swap';
     setSwapPhase(initialPhase);
     setWrongCount(0);
@@ -157,8 +157,14 @@ export const BlendingDojoScreen: React.FC<BlendingDojoScreenProps> = ({
   };
 
   return (
-    <main className="battle-screen" aria-label="Eevee's Blending Dojo">
-      <div className="stage-header">
+    <main
+      className="scene-viewport"
+      style={{ backgroundImage: `url("${getSceneUrl('scene-blending-dojo.jpg')}")` }}
+      aria-label="Eevee's Blending Dojo"
+    >
+      <div className="scene-scrim" />
+
+      <div className="scene-top-bar">
         <button
           id="btn-dojo-back"
           type="button"
@@ -169,102 +175,95 @@ export const BlendingDojoScreen: React.FC<BlendingDojoScreenProps> = ({
           }}
         >
           <BackChevronIcon size={18} />
-          <span>Map</span>
+          <span>Kanto Map</span>
         </button>
 
         <div className="stage-title-pill">Eevee&apos;s Blending Dojo</div>
 
-        <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--ink-secondary)' }}>
-          {progress.completedChains.length} / {WORD_CHAINS.length} Chains Complete
+        <div className="stage-title-pill" style={{ fontSize: '0.88rem' }}>
+          {progress.completedChains.length} / {WORD_CHAINS.length} Chains
         </div>
       </div>
 
-      {/* 6 Word Chain Selector Pills */}
-      <div className="deck-tabs" role="tablist" aria-label="Word chains">
-        {WORD_CHAINS.map((c, idx) => {
-          const active = idx === chainIndex;
-          const done = progress.completedChains.includes(c.id);
-          return (
-            <button
-              key={c.id}
-              id={`dojo-chain-${c.id}`}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              className={`deck-tab ${active ? 'deck-tab--active' : ''}`}
-              style={active ? { borderBottomColor: c.accentColor } : undefined}
-              onClick={() => handleSelectChain(idx)}
-            >
-              {done ? '✓ ' : ''}
-              {c.title}
-            </button>
-          );
-        })}
-      </div>
+      {/* Painted Dojo Veranda Stage with Chain Trail + Eevee & Buddy */}
+      <section className="scene-arena scene-arena--dojo">
+        <div className="dojo-top-pills">
+          <div className="deck-tabs" role="tablist" aria-label="Word chains">
+            {WORD_CHAINS.map((c, idx) => {
+              const active = idx === chainIndex;
+              const done = progress.completedChains.includes(c.id);
+              return (
+                <button
+                  key={c.id}
+                  id={`dojo-chain-${c.id}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  className={`deck-tab ${active ? 'deck-tab--active' : ''}`}
+                  style={active ? { borderBottomColor: c.accentColor } : undefined}
+                  onClick={() => handleSelectChain(idx)}
+                >
+                  {done ? '✓ ' : ''}
+                  {c.title}
+                </button>
+              );
+            })}
+          </div>
 
-      {/* Horizontal Step Stone Trail */}
-      <div className="chain-trail" aria-label="Word chain progress">
-        {chain.steps.map((s, idx) => {
-          const isDone = idx < stepIndex || swapPhase === 'complete';
-          const isActive = idx === stepIndex && swapPhase !== 'complete';
-          return (
-            <React.Fragment key={`${chain.id}-${s.word}`}>
-              {idx > 0 && <span className="bubble-arrow" aria-hidden="true">→</span>}
-              <span
-                className={`chain-step-pill ${
-                  isDone
-                    ? 'chain-step-pill--done'
-                    : isActive
-                      ? 'chain-step-pill--active switch-cursor-glow'
-                      : ''
-                }`}
-              >
-                {isDone ? `✓ ${s.word}` : isActive ? s.word : '···'}
-              </span>
-            </React.Fragment>
-          );
-        })}
-      </div>
+          <div className="chain-trail" aria-label="Word chain progress">
+            {chain.steps.map((s, idx) => {
+              const isDone = idx < stepIndex || swapPhase === 'complete';
+              const isActive = idx === stepIndex && swapPhase !== 'complete';
+              return (
+                <React.Fragment key={`${chain.id}-${s.word}`}>
+                  {idx > 0 && <span className="bubble-arrow" style={{ color: '#FFFFFF' }} aria-hidden="true">→</span>}
+                  <span
+                    className={`chain-step-pill ${
+                      isDone
+                        ? 'chain-step-pill--done'
+                        : isActive
+                          ? 'chain-step-pill--active switch-cursor-glow'
+                          : ''
+                    }`}
+                  >
+                    {isDone ? `✓ ${s.word}` : isActive ? s.word : '···'}
+                  </span>
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </div>
 
-      {/* Dojo Workspace Card */}
-      <section className="work-panel">
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '18px',
-            flexWrap: 'wrap',
-          }}
-        >
+        <div className="scene-actor scene-actor--left">
+          <div className="actor-ground-shadow" />
           <EeveeAvatar
-            size={88}
+            size={128}
             mood={mood}
             equipped={progress.equippedAccessories}
           />
-          <div style={{ maxWidth: '420px' }}>
-            <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--switch-blue)' }}>
-              {chain.phonicsLabel}
-            </div>
-            <p
-              style={{
-                margin: '4px 0',
-                fontFamily: 'var(--font-display)',
-                fontSize: '1.22rem',
-                fontWeight: 700,
-              }}
-            >
-              {coachText}
-            </p>
-            <p style={{ margin: 0, fontSize: '0.94rem', fontWeight: 700, color: 'var(--ink-secondary)' }}>
-              {step.everydaySentence}
-            </p>
-          </div>
-          <PokemonSprite pokemonId={step.pokemonId} name={step.word} size={78} />
+        </div>
+
+        <div className="scene-actor scene-actor--right">
+          <div className="actor-ground-shadow" />
+          <PokemonSprite pokemonId={step.pokemonId} name={step.word} size={118} />
+        </div>
+      </section>
+
+      {/* Bottom Floating Switch Dojo Tray */}
+      <section className="scene-bottom-drawer">
+        <div className="drawer-coach-bar">
+          <button
+            type="button"
+            className="drawer-coach-btn"
+            onClick={() => void speechEngine.speak(`${step.spokenPrompt} ${step.everydaySentence}`)}
+          >
+            <SpeakerIcon size={18} />
+            <span>{coachText}</span>
+          </button>
         </div>
 
         {swapPhase === 'swap' && step.changedIndex !== null && (
-          <>
+          <div className="drawer-inner-center">
             <div className="elkonin-row" aria-label="Single sound swap slots">
               {step.units.map((unit, idx) => {
                 const isTargetSlot = idx === step.changedIndex;
@@ -356,20 +355,23 @@ export const BlendingDojoScreen: React.FC<BlendingDojoScreenProps> = ({
                 <span>Eevee Help!</span>
               </button>
             </div>
-          </>
+          </div>
         )}
 
         {swapPhase === 'blend' && (
-          <PawSlideBlender
-            units={step.units}
-            focusWord={step.word}
-            blendingStyle={progress.settings.blendingStyle}
-            onBlendComplete={handleBlendComplete}
-          />
+          <div className="drawer-inner-center">
+            <PawSlideBlender
+              units={step.units}
+              focusWord={step.word}
+              blendingStyle={progress.settings.blendingStyle}
+              compact
+              onBlendComplete={handleBlendComplete}
+            />
+          </div>
         )}
 
         {swapPhase === 'complete' && (
-          <div className="action-row">
+          <div className="action-row" style={{ padding: '12px 0' }}>
             <button
               id="btn-dojo-next-chain"
               type="button"

@@ -4,6 +4,7 @@ import { speechEngine } from './audio/speechEngine';
 import type {
   AccessoryDef,
   BadgeDef,
+  MapNodeId,
   ParentSettings,
   PartnerMoveId,
   PlayerProgress,
@@ -24,7 +25,7 @@ import { BadgeCeremonyModal } from './components/BadgeCeremonyModal';
 import { BattleScreen } from './components/BattleScreen';
 import { BlendingDojoScreen } from './components/BlendingDojoScreen';
 import { EeveeClosetModal } from './components/EeveeClosetModal';
-import { HomeMap } from './components/HomeMap';
+import { KantoOverworldMap } from './components/KantoOverworldMap';
 import { MenuTrainerScreen } from './components/MenuTrainerScreen';
 import { ParentSettingsModal } from './components/ParentSettingsModal';
 import { StickerBookModal } from './components/StickerBookModal';
@@ -49,7 +50,6 @@ export const App: React.FC<AppProps> = ({ skipWelcome = false }) => {
   const [openModal, setOpenModal] = useState<'none' | 'sticker-book' | 'closet' | 'settings'>('none');
   const [badgeQueue, setBadgeQueue] = useState<BadgeDef[]>([]);
 
-  // Sync audio engines and persist progress whenever progress changes
   useEffect(() => {
     soundEffects.setEnabled(progress.settings.chimesEnabled);
     speechEngine.configure({
@@ -79,6 +79,13 @@ export const App: React.FC<AppProps> = ({ skipWelcome = false }) => {
     },
     [],
   );
+
+  const handleArriveNode = useCallback((nodeId: MapNodeId) => {
+    setProgress((prev) => ({
+      ...prev,
+      currentMapNodeId: nodeId,
+    }));
+  }, []);
 
   const handleRecordWord = useCallback(
     (wordId: string, meta: { usedHelp: boolean; wrongAttempts: number }) => {
@@ -110,6 +117,7 @@ export const App: React.FC<AppProps> = ({ skipWelcome = false }) => {
           ...prev,
           totalStars: nextStars,
           battlesWon: prev.battlesWon + 1,
+          bagItemsCount: prev.bagItemsCount + battle.bagItemsEarned,
           completedZones: nextCompletedZones,
           caughtPokemonIds: nextPokemon,
           selectedMoveId: highestMove.id,
@@ -197,59 +205,55 @@ export const App: React.FC<AppProps> = ({ skipWelcome = false }) => {
   const voiceMuted = !progress.settings.voiceEnabled && !progress.settings.chimesEnabled;
 
   return (
-    <div className="app-shell">
-      <div className="app-container">
-        <TopHud
-          totalStars={progress.totalStars}
-          voiceMuted={voiceMuted}
-          onGoHome={() => {
-            speechEngine.stop();
-            setScreen({ type: 'home' });
-          }}
-          onOpenStickerBook={() => setOpenModal('sticker-book')}
-          onOpenCloset={() => setOpenModal('closet')}
-          onToggleMute={handleToggleMute}
-          onOpenSettings={() => setOpenModal('settings')}
+    <div className="game-root">
+      <TopHud
+        totalStars={progress.totalStars}
+        bagItemsCount={progress.bagItemsCount}
+        voiceMuted={voiceMuted}
+        onOpenStickerBook={() => setOpenModal('sticker-book')}
+        onOpenCloset={() => setOpenModal('closet')}
+        onToggleMute={handleToggleMute}
+        onOpenSettings={() => setOpenModal('settings')}
+      />
+
+      {screen.type === 'home' && (
+        <KantoOverworldMap
+          progress={progress}
+          onArriveNode={handleArriveNode}
+          onEnterZone={(zoneId) => setScreen({ type: 'battle', zoneId })}
+          onOpenMenuTrainer={() => setScreen({ type: 'menu-trainer' })}
+          onOpenBlendingDojo={() => setScreen({ type: 'blending-dojo' })}
         />
+      )}
 
-        {screen.type === 'home' && (
-          <HomeMap
-            progress={progress}
-            onSelectZone={(zoneId) => setScreen({ type: 'battle', zoneId })}
-            onOpenMenuTrainer={() => setScreen({ type: 'menu-trainer' })}
-            onOpenBlendingDojo={() => setScreen({ type: 'blending-dojo' })}
-          />
-        )}
+      {screen.type === 'battle' && (
+        <BattleScreen
+          zoneId={screen.zoneId}
+          progress={progress}
+          onRecordWord={handleRecordWord}
+          onBlendDone={handleBlendDone}
+          onBattleComplete={handleBattleComplete}
+          onExit={() => setScreen({ type: 'home' })}
+        />
+      )}
 
-        {screen.type === 'battle' && (
-          <BattleScreen
-            zoneId={screen.zoneId}
-            progress={progress}
-            onRecordWord={handleRecordWord}
-            onBlendDone={handleBlendDone}
-            onBattleComplete={handleBattleComplete}
-            onExit={() => setScreen({ type: 'home' })}
-          />
-        )}
+      {screen.type === 'menu-trainer' && (
+        <MenuTrainerScreen
+          progress={progress}
+          onMenuWin={handleMenuWin}
+          onBlendDone={handleBlendDone}
+          onExit={() => setScreen({ type: 'home' })}
+        />
+      )}
 
-        {screen.type === 'menu-trainer' && (
-          <MenuTrainerScreen
-            progress={progress}
-            onMenuWin={handleMenuWin}
-            onBlendDone={handleBlendDone}
-            onExit={() => setScreen({ type: 'home' })}
-          />
-        )}
-
-        {screen.type === 'blending-dojo' && (
-          <BlendingDojoScreen
-            progress={progress}
-            onBlendDone={handleBlendDone}
-            onChainComplete={handleChainComplete}
-            onExit={() => setScreen({ type: 'home' })}
-          />
-        )}
-      </div>
+      {screen.type === 'blending-dojo' && (
+        <BlendingDojoScreen
+          progress={progress}
+          onBlendDone={handleBlendDone}
+          onChainComplete={handleChainComplete}
+          onExit={() => setScreen({ type: 'home' })}
+        />
+      )}
 
       {showWelcome && (
         <WelcomeOverlay

@@ -5,6 +5,7 @@ import type {
   BlendingStyle,
   EquippedAccessories,
   LetterAudioMode,
+  MapNodeId,
   MasteryStatus,
   ParentSettings,
   PartnerMoveId,
@@ -16,7 +17,7 @@ import type {
 } from '../data/types';
 
 export const STORAGE_KEY = 'lets-go-spell-eevee-v1';
-export const PROGRESS_VERSION = 1;
+export const PROGRESS_VERSION = 2;
 
 export interface StorageLike {
   getItem(key: string): string | null;
@@ -44,6 +45,8 @@ export function createDefaultProgress(): PlayerProgress {
     battlesWon: 0,
     totalBlends: 0,
     menuTrainerWins: 0,
+    bagItemsCount: 3,
+    currentMapNodeId: 'pallet',
     completedZones: [],
     completedChains: [],
     // Eevee (#133) begins in your Sticker Book as your partner pal!
@@ -73,6 +76,17 @@ const VALID_AUDIO_MODES = new Set<LetterAudioMode>(['phonics', 'names-and-sounds
 const VALID_SPEEDS = new Set<VoiceSpeed>(['slow', 'normal']);
 const VALID_BLENDING_STYLES = new Set<BlendingStyle>(['successive', 'continuous']);
 const VALID_ZONES = new Set<ZoneId>([1, 2, 3, 4, 5, 6]);
+const VALID_MAP_NODES = new Set<MapNodeId>([
+  'pallet',
+  'viridian',
+  'pewter',
+  'center',
+  'cerulean',
+  'champion',
+  'dojo',
+  'menu-camp',
+  'tall-grass',
+]);
 const VALID_BADGES = new Set<BadgeId>(KANTO_BADGES.map((b) => b.id));
 const VALID_ACCESSORIES = new Set<AccessoryId>(DRESS_UP_ACCESSORIES.map((a) => a.id));
 const VALID_MOVES = new Set<PartnerMoveId>(PARTNER_MOVES.map((m) => m.id));
@@ -200,12 +214,20 @@ export function loadProgress(storage?: StorageLike): PlayerProgress {
       ? (obj.selectedMoveId as PartnerMoveId)
       : 'tackle';
 
+    const currentMapNodeId: MapNodeId = VALID_MAP_NODES.has(
+      obj.currentMapNodeId as MapNodeId,
+    )
+      ? (obj.currentMapNodeId as MapNodeId)
+      : 'pallet';
+
     return {
       version: PROGRESS_VERSION,
       totalStars: nonNegativeInt(obj.totalStars),
       battlesWon: nonNegativeInt(obj.battlesWon),
       totalBlends: nonNegativeInt(obj.totalBlends),
       menuTrainerWins: nonNegativeInt(obj.menuTrainerWins),
+      bagItemsCount: nonNegativeInt(obj.bagItemsCount, 3),
+      currentMapNodeId,
       completedZones,
       completedChains,
       caughtPokemonIds,
