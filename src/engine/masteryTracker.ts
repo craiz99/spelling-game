@@ -49,6 +49,7 @@ export function createDefaultProgress(): PlayerProgress {
     currentMapNodeId: 'pallet',
     completedZones: [],
     completedChains: [],
+    masteredLetters: [],
     // Eevee (#133) begins in your Sticker Book as your partner pal!
     caughtPokemonIds: [133],
     earnedBadges: [],
@@ -78,6 +79,7 @@ const VALID_BLENDING_STYLES = new Set<BlendingStyle>(['successive', 'continuous'
 const VALID_ZONES = new Set<ZoneId>([1, 2, 3, 4, 5, 6]);
 const VALID_MAP_NODES = new Set<MapNodeId>([
   'pallet',
+  'oaks-lab',
   'viridian',
   'pewter',
   'center',
@@ -190,6 +192,16 @@ export function loadProgress(storage?: StorageLike): PlayerProgress {
         )
       : [];
 
+    const masteredLetters = Array.isArray(obj.masteredLetters)
+      ? Array.from(
+          new Set(
+            obj.masteredLetters
+              .filter((l): l is string => typeof l === 'string' && /^[a-zA-Z]$/.test(l))
+              .map((l) => l.toUpperCase()),
+          ),
+        )
+      : [];
+
     const rawPokemon = Array.isArray(obj.caughtPokemonIds)
       ? obj.caughtPokemonIds.filter(
           (id): id is number =>
@@ -230,6 +242,7 @@ export function loadProgress(storage?: StorageLike): PlayerProgress {
       currentMapNodeId,
       completedZones,
       completedChains,
+      masteredLetters,
       caughtPokemonIds,
       earnedBadges,
       equippedAccessories: sanitizeEquipped(obj.equippedAccessories),

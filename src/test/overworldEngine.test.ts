@@ -9,8 +9,8 @@ import {
 } from '../engine/overworldEngine';
 
 describe('Kanto Overworld Map Navigation Engine', () => {
-  it('places all 9 Kanto landmarks cleanly inside normalized map bounds', () => {
-    expect(KANTO_LANDMARKS).toHaveLength(9);
+  it('places all 10 Kanto landmarks cleanly inside normalized map bounds', () => {
+    expect(KANTO_LANDMARKS).toHaveLength(10);
     for (const lm of KANTO_LANDMARKS) {
       expect(lm.x).toBeGreaterThan(5);
       expect(lm.x).toBeLessThan(95);
@@ -41,9 +41,10 @@ describe('Kanto Overworld Map Navigation Engine', () => {
     expect(getTownChallengeMode(6)).toBe('champion-gauntlet');
   });
 
-  it('unlocks Pallet Town and side landmarks by default and gates later towns until earned or overridden', () => {
+  it('unlocks Pallet Town, Oak\'s A–Z Lab, and side landmarks by default and gates later towns until earned or overridden', () => {
     const p = createDefaultProgress();
     expect(isLandmarkUnlocked(getLandmarkById('pallet'), p)).toBe(true);
+    expect(isLandmarkUnlocked(getLandmarkById('oaks-lab'), p)).toBe(true);
     expect(isLandmarkUnlocked(getLandmarkById('dojo'), p)).toBe(true);
     expect(isLandmarkUnlocked(getLandmarkById('menu-camp'), p)).toBe(true);
     expect(isLandmarkUnlocked(getLandmarkById('champion'), p)).toBe(false);

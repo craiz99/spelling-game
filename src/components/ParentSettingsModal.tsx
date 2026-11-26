@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { soundEffects } from '../audio/soundEffects';
 import { speechEngine, type VoiceOption } from '../audio/speechEngine';
 import { CURRICULUM_WORDS } from '../data/curriculum';
 import type {
@@ -29,14 +30,18 @@ export const ParentSettingsModal: React.FC<ParentSettingsModalProps> = ({
     speechEngine.getAvailableVoices(),
   );
   const [confirmResetStep, setConfirmResetStep] = useState(false);
+  const [diagTick, setDiagTick] = useState(0);
 
   useEffect(() => {
-    const refresh = () => setVoices(speechEngine.getAvailableVoices());
+    const refresh = () => {
+      setVoices(speechEngine.getAvailableVoices());
+      setDiagTick((t) => t + 1);
+    };
     refresh();
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.onvoiceschanged = refresh;
+      window.speechSynthesis.addEventListener?.('voiceschanged', refresh);
       return () => {
-        window.speechSynthesis.onvoiceschanged = null;
+        window.speechSynthesis.removeEventListener?.('voiceschanged', refresh);
       };
     }
     return undefined;
@@ -49,10 +54,17 @@ export const ParentSettingsModal: React.FC<ParentSettingsModalProps> = ({
     (w) => progress.wordMastery[w.id]?.status === 'learning',
   ).length;
 
+  const diagnostics = speechEngine.getDiagnostics();
+  void diagTick;
+
   const handleTestVoice = () => {
+    soundEffects.unlock();
+    soundEffects.playCorrectPop();
     void speechEngine.speak(
       'Hi friend! Let us blend the sounds in sun. sss ... suh ... sun!',
+      { interrupt: false },
     );
+    setDiagTick((t) => t + 1);
   };
 
   return (
@@ -142,13 +154,29 @@ export const ParentSettingsModal: React.FC<ParentSettingsModalProps> = ({
             <button
               id="btn-test-voice"
               type="button"
-              className="seg-btn"
+              className="seg-btn seg-btn--active"
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               onClick={handleTestVoice}
             >
-              <SpeakerIcon size={16} />
-              <span>Test Voice &amp; Blending</span>
+              <SpeakerIcon size={16} color="#FFFFFF" />
+              <span>Test Voice &amp; Chimes</span>
             </button>
+          </div>
+
+          <div
+            data-testid="audio-diagnostics"
+            style={{
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              color: 'var(--ink-secondary)',
+              background: '#ffffff',
+              padding: '8px 12px',
+              borderRadius: '10px',
+              border: '1px solid var(--border-soft)',
+            }}
+          >
+            Speech API: {diagnostics.speechSupported ? 'Ready' : 'Unavailable'} · Voices detected:{' '}
+            {diagnostics.voiceCount} · Active voice: {diagnostics.activeVoiceName}
           </div>
 
           <div className="settings-row">
@@ -268,10 +296,10 @@ export const ParentSettingsModal: React.FC<ParentSettingsModalProps> = ({
           </div>
         </div>
 
-        {/* Word Mastery Summary */}
+        {/* Word & Letter Mastery Summary */}
         <div className="settings-group">
           <div style={{ fontWeight: 900, fontSize: '0.94rem' }}>
-            Word Mastery Summary
+            Learning Progress Summary
           </div>
           <div
             style={{
@@ -282,6 +310,14 @@ export const ParentSettingsModal: React.FC<ParentSettingsModalProps> = ({
             }}
           >
             <div className="switch-card" style={{ padding: '10px', borderRadius: '14px' }}>
+              <div style={{ fontSize: '1.35rem', fontWeight: 900, color: '#2C98F0' }}>
+                {progress.masteredLetters.length}/26
+              </div>
+              <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--ink-muted)' }}>
+                A–Z Letters
+              </div>
+            </div>
+            <div className="switch-card" style={{ padding: '10px', borderRadius: '14px' }}>
               <div style={{ fontSize: '1.35rem', fontWeight: 900, color: '#15803D' }}>
                 {masteredCount}
               </div>
@@ -290,19 +326,11 @@ export const ParentSettingsModal: React.FC<ParentSettingsModalProps> = ({
               </div>
             </div>
             <div className="switch-card" style={{ padding: '10px', borderRadius: '14px' }}>
-              <div style={{ fontSize: '1.35rem', fontWeight: 900, color: '#2C98F0' }}>
-                {learningCount}
-              </div>
-              <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--ink-muted)' }}>
-                Learning
-              </div>
-            </div>
-            <div className="switch-card" style={{ padding: '10px', borderRadius: '14px' }}>
               <div style={{ fontSize: '1.35rem', fontWeight: 900, color: '#C78D4E' }}>
-                {progress.totalBlends}
+                {learningCount + progress.totalBlends}
               </div>
               <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--ink-muted)' }}>
-                Blends Done
+                Practice Steps
               </div>
             </div>
             <div className="switch-card" style={{ padding: '10px', borderRadius: '14px' }}>

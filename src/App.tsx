@@ -26,6 +26,7 @@ import { BattleScreen } from './components/BattleScreen';
 import { BlendingDojoScreen } from './components/BlendingDojoScreen';
 import { EeveeClosetModal } from './components/EeveeClosetModal';
 import { KantoOverworldMap } from './components/KantoOverworldMap';
+import { LetterLabScreen } from './components/LetterLabScreen';
 import { MenuTrainerScreen } from './components/MenuTrainerScreen';
 import { ParentSettingsModal } from './components/ParentSettingsModal';
 import { StickerBookModal } from './components/StickerBookModal';
@@ -35,6 +36,7 @@ import { WelcomeOverlay } from './components/WelcomeOverlay';
 type ActiveScreen =
   | { type: 'home' }
   | { type: 'battle'; zoneId: ZoneId }
+  | { type: 'letter-lab' }
   | { type: 'menu-trainer' }
   | { type: 'blending-dojo' };
 
@@ -148,6 +150,25 @@ export const App: React.FC<AppProps> = ({ skipWelcome = false }) => {
     [applyProgressUpdate],
   );
 
+  const handleMasterLetter = useCallback(
+    (letter: string, pokemonId: number) => {
+      applyProgressUpdate((prev) => {
+        const upper = letter.toUpperCase();
+        const nextLetters = prev.masteredLetters.includes(upper)
+          ? prev.masteredLetters
+          : [...prev.masteredLetters, upper];
+        const nextPokemon = Array.from(new Set([...prev.caughtPokemonIds, pokemonId]));
+        return {
+          ...prev,
+          totalStars: prev.totalStars + 1,
+          masteredLetters: nextLetters,
+          caughtPokemonIds: nextPokemon,
+        };
+      });
+    },
+    [applyProgressUpdate],
+  );
+
   const handleToggleAccessory = useCallback((acc: AccessoryDef) => {
     setProgress((prev) => {
       const currentlyOn = prev.equippedAccessories[acc.slot] === acc.id;
@@ -221,8 +242,17 @@ export const App: React.FC<AppProps> = ({ skipWelcome = false }) => {
           progress={progress}
           onArriveNode={handleArriveNode}
           onEnterZone={(zoneId) => setScreen({ type: 'battle', zoneId })}
+          onOpenLetterLab={() => setScreen({ type: 'letter-lab' })}
           onOpenMenuTrainer={() => setScreen({ type: 'menu-trainer' })}
           onOpenBlendingDojo={() => setScreen({ type: 'blending-dojo' })}
+        />
+      )}
+
+      {screen.type === 'letter-lab' && (
+        <LetterLabScreen
+          progress={progress}
+          onMasterLetter={handleMasterLetter}
+          onExit={() => setScreen({ type: 'home' })}
         />
       )}
 

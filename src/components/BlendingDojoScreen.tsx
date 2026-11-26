@@ -3,12 +3,14 @@ import { soundEffects } from '../audio/soundEffects';
 import { speechEngine } from '../audio/speechEngine';
 import { areMirrorConfusable, getPhonemeInfo } from '../data/phonemes';
 import { WORD_CHAINS } from '../data/wordChains';
+import { resolveRawWordPictureSlug } from '../data/wordPictures';
 import type { EeveeMood, PlayerProgress } from '../data/types';
 import { getSceneUrl } from '../engine/overworldEngine';
 import { EeveeAvatar } from './EeveeAvatar';
 import { PawSlideBlender } from './PawSlideBlender';
 import { PokemonSprite } from './PokemonSprite';
 import { BackChevronIcon, PawPrintIcon, SpeakerIcon } from './SwitchIcons';
+import { WordPictureCard } from './WordPictureCard';
 
 interface BlendingDojoScreenProps {
   progress: PlayerProgress;
@@ -47,7 +49,6 @@ export const BlendingDojoScreen: React.FC<BlendingDojoScreenProps> = ({
   const [stepIndex, setStepIndex] = useState(0);
   const [swapPhase, setSwapPhase] = useState<'swap' | 'blend' | 'complete'>('blend');
   const [wrongCount, setWrongCount] = useState(0);
-  const [coachText, setCoachText] = useState('');
   const [mood, setMood] = useState<EeveeMood>('happy');
 
   const chain = WORD_CHAINS[chainIndex] ?? WORD_CHAINS[0]!;
@@ -57,7 +58,6 @@ export const BlendingDojoScreen: React.FC<BlendingDojoScreenProps> = ({
     const initialPhase = step.changedIndex === null ? 'blend' : 'swap';
     setSwapPhase(initialPhase);
     setWrongCount(0);
-    setCoachText(step.spokenPrompt);
     setMood('happy');
     void speechEngine.speak(`${step.spokenPrompt} ${step.everydaySentence}`);
   }, [chainIndex, stepIndex, step]);
@@ -91,7 +91,6 @@ export const BlendingDojoScreen: React.FC<BlendingDojoScreenProps> = ({
       soundEffects.playCorrectPop();
       setMood('sparkle');
       const msg = `Yes! You swapped ${step.previousLetters} to ${expected.letters}! Now slide to blend ${step.word}!`;
-      setCoachText(msg);
       void speechEngine.speak(msg);
       setSwapPhase('blend');
       return;
@@ -105,19 +104,16 @@ export const BlendingDojoScreen: React.FC<BlendingDojoScreenProps> = ({
     if (nextWrong === 1) {
       soundEffects.playGentleWoodChime();
       const msg = `That says ${chosenInfo.ttsCue}. For ${step.word}, we need ${expectedInfo.ttsCue} like ${expectedInfo.keyword}!`;
-      setCoachText(msg);
       setMood('encouraging');
       void speechEngine.speak(msg);
     } else if (nextWrong === 2) {
       soundEffects.playHintSparkle();
       const msg = `Look for the glowing tile! We need ${expectedInfo.ttsCue} to make ${step.word}!`;
-      setCoachText(msg);
       setMood('encouraging');
       void speechEngine.speak(msg);
     } else {
       soundEffects.playCorrectPop();
       const msg = `Eevee popped ${expected.letters} right in! Now blend ${step.word}!`;
-      setCoachText(msg);
       setMood('happy');
       void speechEngine.speak(msg);
       setSwapPhase('blend');
@@ -129,7 +125,6 @@ export const BlendingDojoScreen: React.FC<BlendingDojoScreenProps> = ({
     const expected = step.units[step.changedIndex]!;
     soundEffects.playCorrectPop();
     const msg = `Eevee swapped in ${expected.letters}! Now let's slide and blend ${step.word}!`;
-    setCoachText(msg);
     setMood('happy');
     void speechEngine.speak(msg);
     setSwapPhase('blend');
@@ -144,7 +139,6 @@ export const BlendingDojoScreen: React.FC<BlendingDojoScreenProps> = ({
       setSwapPhase('complete');
       setMood('cheering');
       const msg = `Hooray! You finished the whole word chain: ${chain.steps.map((s) => s.word).join(', ')}!`;
-      setCoachText(msg);
       void speechEngine.speak(msg);
       onChainComplete(chain.id);
     }
@@ -250,116 +244,123 @@ export const BlendingDojoScreen: React.FC<BlendingDojoScreenProps> = ({
       </section>
 
       {/* Bottom Floating Switch Dojo Tray */}
-      <section className="scene-bottom-drawer">
-        <div className="drawer-coach-bar">
-          <button
-            type="button"
-            className="drawer-coach-btn"
-            onClick={() => void speechEngine.speak(`${step.spokenPrompt} ${step.everydaySentence}`)}
-          >
-            <SpeakerIcon size={18} />
-            <span>{coachText}</span>
-          </button>
-        </div>
-
+      <section className="scene-bottom-drawer scene-bottom-drawer--minimal">
         {swapPhase === 'swap' && step.changedIndex !== null && (
-          <div className="drawer-inner-center">
-            <div className="elkonin-row" aria-label="Single sound swap slots">
-              {step.units.map((unit, idx) => {
-                const isTargetSlot = idx === step.changedIndex;
-                return (
-                  <div
-                    key={`${step.word}-slot-${idx}`}
-                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}
-                  >
-                    <span
-                      style={{
-                        fontSize: '0.82rem',
-                        fontWeight: 900,
-                        color: isTargetSlot ? 'var(--switch-orange)' : 'transparent',
-                        minHeight: '18px',
-                      }}
+          <div className="minimal-battle-tray">
+            <WordPictureCard
+              pictureSlug={resolveRawWordPictureSlug(step.word)}
+              pokemonId={step.pokemonId}
+              label={step.word}
+              size="md"
+              onTap={() => void speechEngine.speak(`${step.spokenPrompt} ${step.everydaySentence}`)}
+            />
+
+            <div className="minimal-battle-tray__center">
+              <div className="elkonin-row" aria-label="Single sound swap slots">
+                {step.units.map((unit, idx) => {
+                  const isTargetSlot = idx === step.changedIndex;
+                  return (
+                    <div
+                      key={`${step.word}-slot-${idx}`}
+                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}
                     >
-                      {isTargetSlot && step.previousLetters
-                        ? `${step.previousLetters} ↷`
-                        : '.'}
-                    </span>
-                    <button
-                      type="button"
-                      className={`elkonin-box ${
-                        isTargetSlot
-                          ? 'elkonin-box--empty elkonin-box--active switch-cursor-glow'
-                          : 'elkonin-box--filled'
-                      }`}
-                      onClick={() => {
-                        soundEffects.playTileTap();
-                        void speechEngine.speakPhoneme(
-                          unit.phonemeKey,
-                          unit.letters,
-                          progress.settings.letterAudioMode,
-                          isTargetSlot,
-                        );
-                      }}
-                    >
-                      {isTargetSlot ? (
-                        wrongCount >= 2 ? (
-                          <span className="elkonin-ghost">{unit.letters}</span>
+                      <span
+                        style={{
+                          fontSize: '0.82rem',
+                          fontWeight: 900,
+                          color: isTargetSlot ? 'var(--switch-orange)' : 'transparent',
+                          minHeight: '18px',
+                        }}
+                      >
+                        {isTargetSlot && step.previousLetters
+                          ? `${step.previousLetters} ↷`
+                          : '.'}
+                      </span>
+                      <button
+                        type="button"
+                        className={`elkonin-box ${
+                          isTargetSlot
+                            ? 'elkonin-box--empty elkonin-box--active switch-cursor-glow'
+                            : 'elkonin-box--filled'
+                        }`}
+                        onClick={() => {
+                          soundEffects.playTileTap();
+                          void speechEngine.speakPhoneme(
+                            unit.phonemeKey,
+                            unit.letters,
+                            progress.settings.letterAudioMode,
+                            isTargetSlot,
+                          );
+                        }}
+                      >
+                        {isTargetSlot ? (
+                          wrongCount >= 2 ? (
+                            <span className="elkonin-ghost">{unit.letters}</span>
+                          ) : (
+                            <span style={{ color: '#94A3B8' }}>?</span>
+                          )
                         ) : (
-                          <span style={{ color: '#94A3B8' }}>?</span>
-                        )
-                      ) : (
-                        unit.letters
-                      )}
+                          unit.letters
+                        )}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="tile-tray" role="group" aria-label="Sound swap tiles">
+                {swapChoices.map((choice) => {
+                  const isRight = choice.letters === step.units[step.changedIndex!]!.letters;
+                  return (
+                    <button
+                      key={choice.letters}
+                      id={`dojo-tile-${choice.letters}`}
+                      type="button"
+                      className={`phoneme-tile ${
+                        wrongCount >= 2 && isRight ? 'switch-cursor-glow' : ''
+                      }`}
+                      onClick={() => handleChooseSwap(choice.letters, choice.phonemeKey)}
+                    >
+                      {choice.letters}
                     </button>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
 
-            <div className="tile-tray" role="group" aria-label="Sound swap tiles">
-              {swapChoices.map((choice) => {
-                const isRight = choice.letters === step.units[step.changedIndex!]!.letters;
-                return (
-                  <button
-                    key={choice.letters}
-                    id={`dojo-tile-${choice.letters}`}
-                    type="button"
-                    className={`phoneme-tile ${
-                      wrongCount >= 2 && isRight ? 'switch-cursor-glow' : ''
-                    }`}
-                    onClick={() => handleChooseSwap(choice.letters, choice.phonemeKey)}
-                  >
-                    {choice.letters}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="action-row">
+            <div className="minimal-battle-tray__actions">
               <button
                 id="btn-dojo-hear"
                 type="button"
-                className="switch-cta switch-cta--blue"
+                className="icon-circle-btn icon-circle-btn--blue"
                 onClick={() => void speechEngine.speak(`${step.spokenPrompt} ${step.everydaySentence}`)}
+                aria-label="Hear Sound"
               >
-                <SpeakerIcon size={20} />
-                <span>Hear Sound</span>
+                <SpeakerIcon size={26} color="#FFFFFF" />
               </button>
               <button
                 id="btn-dojo-help"
                 type="button"
-                className="switch-cta switch-cta--caramel"
+                className="icon-circle-btn icon-circle-btn--caramel"
                 onClick={handleEeveeHelp}
+                aria-label="Eevee Help"
               >
-                <PawPrintIcon size={20} color="#FFFFFF" />
-                <span>Eevee Help!</span>
+                <PawPrintIcon size={26} color="#FFFFFF" />
               </button>
             </div>
           </div>
         )}
 
         {swapPhase === 'blend' && (
-          <div className="drawer-inner-center">
+          <div className="blending-with-picture">
+            <WordPictureCard
+              pictureSlug={resolveRawWordPictureSlug(step.word)}
+              pokemonId={step.pokemonId}
+              label={step.word}
+              caption={step.word}
+              size="sm"
+              onTap={() => void speechEngine.speak(step.word.toLowerCase())}
+            />
             <PawSlideBlender
               units={step.units}
               focusWord={step.word}
@@ -378,7 +379,7 @@ export const BlendingDojoScreen: React.FC<BlendingDojoScreenProps> = ({
               className="switch-cta switch-cta--emerald"
               onClick={() => handleSelectChain((chainIndex + 1) % WORD_CHAINS.length)}
             >
-              Try Next Word Chain
+              Next Word Chain
             </button>
             <button
               id="btn-dojo-return-map"
@@ -386,7 +387,7 @@ export const BlendingDojoScreen: React.FC<BlendingDojoScreenProps> = ({
               className="switch-cta switch-cta--blue"
               onClick={onExit}
             >
-              Back to Kanto Map
+              Kanto Map
             </button>
           </div>
         )}

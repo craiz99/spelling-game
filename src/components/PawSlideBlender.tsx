@@ -192,18 +192,20 @@ export const PawSlideBlender: React.FC<PawSlideBlenderProps> = ({
       data-testid="paw-slide-blender"
       aria-label={`Blend the sounds in ${focusWord}`}
     >
-      <div className="paw-blender__header">
-        <span className="paw-blender__badge">
-          {useSuccessiveGlue ? '2-Step Smooth Blending' : 'Continuous Blending'}
-        </span>
-        <span className={`blend-cue-pill ${completed ? 'blend-cue-pill--done' : ''}`}>
-          {completed
-            ? `${displayWord ?? focusWord}!`
-            : activeStep
-              ? activeStep.visualPrompt
-              : 'Slide Eevee\'s paw left to right!'}
-        </span>
-      </div>
+      {!compact && (
+        <div className="paw-blender__header">
+          <span className="paw-blender__badge">
+            {useSuccessiveGlue ? '2-Step Blend' : 'Smooth Blend'}
+          </span>
+          <span className={`blend-cue-pill ${completed ? 'blend-cue-pill--done' : ''}`}>
+            {completed
+              ? `${displayWord ?? focusWord}!`
+              : activeStep
+                ? activeStep.visualPrompt
+                : 'Slide!'}
+          </span>
+        </div>
+      )}
 
       {/* Phoneme Bubbles Row — Strictly ABOVE the slider track */}
       <div className="paw-blender__bubbles" data-testid="phoneme-bubbles-row">

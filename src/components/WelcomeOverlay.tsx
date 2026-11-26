@@ -11,8 +11,8 @@ interface WelcomeOverlayProps {
 }
 
 /**
- * Friendly 1-tap welcome launch card that cleanly unlocks Web Audio & Web Speech
- * on iPad/iOS Safari before Eevee speaks the first line!
+ * Clean 1-tap launch overlay that unlocks both Web Audio and Web Speech
+ * directly inside the user's tap gesture (zero synchronous cancel() race!).
  */
 export const WelcomeOverlay: React.FC<WelcomeOverlayProps> = ({
   equipped,
@@ -22,8 +22,10 @@ export const WelcomeOverlay: React.FC<WelcomeOverlayProps> = ({
     soundEffects.unlock();
     speechEngine.unlock();
     soundEffects.playVictoryFanfare();
+    // Speak directly inside user gesture with interrupt:false so Safari/Chrome never drop it
     void speechEngine.speak(
-      'Hi friend! Let us go spell and blend with Eevee! Pick a Kanto town to play!',
+      'Hi friend! Let us go spell with Eevee! Tap a town on the Kanto map!',
+      { interrupt: false },
     );
     onStart();
   };
@@ -33,27 +35,24 @@ export const WelcomeOverlay: React.FC<WelcomeOverlayProps> = ({
       className="modal-backdrop"
       role="dialog"
       aria-modal="true"
-      aria-label="Welcome to Let's Go, Spell with Eevee"
+      aria-label="Let's Go, Spell with Eevee"
     >
       <div
         className="modal-panel"
-        style={{ maxWidth: '480px', alignItems: 'center', textAlign: 'center', gap: '16px' }}
+        style={{ maxWidth: '420px', alignItems: 'center', textAlign: 'center', gap: '16px' }}
       >
-        <EeveeAvatar size={146} mood="cheering" equipped={equipped} />
+        <EeveeAvatar size={156} mood="cheering" equipped={equipped} />
         <h2 className="modal-title" style={{ fontSize: '1.75rem' }}>
           Let&apos;s Go, Spell with Eevee!
         </h2>
-        <p style={{ margin: 0, fontWeight: 700, color: 'var(--ink-secondary)', fontSize: '1.02rem' }}>
-          Build words with sound boxes, slide Eevee&apos;s paw to blend smoothly, and unlock Kanto friends!
-        </p>
         <button
           id="btn-welcome-start"
           type="button"
           className="switch-cta switch-cta--emerald"
-          style={{ minHeight: '66px', padding: '14px 34px', fontSize: '1.2rem' }}
+          style={{ minHeight: '68px', padding: '14px 40px', fontSize: '1.25rem' }}
           onClick={handleStart}
         >
-          <PokeBallIcon size={24} color="#FFFFFF" />
+          <PokeBallIcon size={26} color="#FFFFFF" />
           <span>Let&apos;s Go!</span>
         </button>
       </div>

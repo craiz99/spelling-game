@@ -2,6 +2,7 @@ export type ZoneId = 1 | 2 | 3 | 4 | 5 | 6;
 
 export type MapNodeId =
   | 'pallet'
+  | 'oaks-lab'
   | 'viridian'
   | 'pewter'
   | 'center'
@@ -77,6 +78,8 @@ export interface WordEntry {
   pokemonName: string;
   /** Optional PokéAPI item slug for curatives/mart items */
   itemSlug?: string;
+  /** Optional painted Word Picture Card slug in public/assets/words/ */
+  pictureSlug?: string;
   /** Real-world everyday sentence anchoring meaning outside Pokémon */
   everydaySentence: string;
   /** Short Pokémon Let's Go bridge note */
@@ -254,6 +257,7 @@ export interface PlayerProgress {
   currentMapNodeId: MapNodeId;
   completedZones: ZoneId[];
   completedChains: string[];
+  masteredLetters: string[];
   caughtPokemonIds: number[];
   earnedBadges: BadgeId[];
   equippedAccessories: EquippedAccessories;

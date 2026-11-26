@@ -21,6 +21,7 @@ interface KantoOverworldMapProps {
   progress: PlayerProgress;
   onArriveNode: (nodeId: MapNodeId) => void;
   onEnterZone: (zoneId: ZoneId) => void;
+  onOpenLetterLab: () => void;
   onOpenMenuTrainer: () => void;
   onOpenBlendingDojo: () => void;
 }
@@ -29,6 +30,7 @@ export const KantoOverworldMap: React.FC<KantoOverworldMapProps> = ({
   progress,
   onArriveNode,
   onEnterZone,
+  onOpenLetterLab,
   onOpenMenuTrainer,
   onOpenBlendingDojo,
 }) => {
@@ -51,6 +53,10 @@ export const KantoOverworldMap: React.FC<KantoOverworldMapProps> = ({
 
   const launchLandmark = (landmark: MapLandmark) => {
     soundEffects.playCorrectPop();
+    if (landmark.kind === 'letter-lab') {
+      onOpenLetterLab();
+      return;
+    }
     if (landmark.kind === 'dojo') {
       onOpenBlendingDojo();
       return;
@@ -69,12 +75,12 @@ export const KantoOverworldMap: React.FC<KantoOverworldMapProps> = ({
     if (!unlocked) {
       soundEffects.playGentleWoodChime();
       void speechEngine.speak(
-        `${target.name} is next on your journey! Finish the glowing town first, or ask a grown-up to unlock all towns in Settings!`,
+        `${target.name} is next! Finish the glowing town first.`,
       );
       return;
     }
 
-    // If Eevee is already standing right at this landmark, enter immediately!
+    // If Eevee is already standing at this landmark, enter right away
     if (target.id === eeveeNodeId && !isWalking) {
       setSelectedNodeId(target.id);
       launchLandmark(target);
@@ -86,7 +92,7 @@ export const KantoOverworldMap: React.FC<KantoOverworldMapProps> = ({
     setSelectedNodeId(target.id);
     setIsWalking(true);
 
-    const stepDelayMs = 340;
+    const stepDelayMs = 310;
     path.slice(1).forEach((stepNodeId, idx) => {
       const prevNode = getLandmarkById(path[idx]!);
       const nextNode = getLandmarkById(stepNodeId);
@@ -100,10 +106,8 @@ export const KantoOverworldMap: React.FC<KantoOverworldMapProps> = ({
           const doneTimer = window.setTimeout(() => {
             setIsWalking(false);
             onArriveNode(target.id);
-            void speechEngine.speak(
-              `Welcome to ${target.name}! Tap ${target.ctaLabel} to play!`,
-            );
-          }, 260);
+            void speechEngine.speak(`${target.name}!`);
+          }, 240);
           walkTimersRef.current.push(doneTimer);
         }
       }, idx * stepDelayMs);
@@ -190,15 +194,15 @@ export const KantoOverworldMap: React.FC<KantoOverworldMapProps> = ({
   return (
     <main className="overworld-viewport" aria-label="Interactive Kanto Overworld Map">
       <div className="overworld-stage">
-        {/* Bespoke Painted 3D-Lit Kanto Peninsula Map */}
+        {/* Expansive Painted Regional Kanto Map */}
         <img
           src={getSceneUrl('kanto-world-map.jpg')}
-          alt="Sunlit Kanto Adventure Map"
+          alt="Kanto Adventure Region Map"
           className="overworld-map-img"
           draggable={false}
         />
 
-        {/* Glowing Dotted Switch Adventure Roads */}
+        {/* Subtle Glowing Dotted Adventure Roads */}
         <svg
           className="overworld-roads-svg"
           viewBox="0 0 100 100"
@@ -217,16 +221,16 @@ export const KantoOverworldMap: React.FC<KantoOverworldMapProps> = ({
                 y1={a.y}
                 x2={b.x}
                 y2={b.y}
-                stroke={bothUnlocked ? '#FFF9D6' : 'rgba(255,255,255,0.42)'}
-                strokeWidth={bothUnlocked ? '0.95' : '0.65'}
-                strokeDasharray="1.8 1.8"
+                stroke={bothUnlocked ? '#FFF9D6' : 'rgba(255,255,255,0.4)'}
+                strokeWidth={bothUnlocked ? '0.8' : '0.55'}
+                strokeDasharray="1.6 1.6"
                 strokeLinecap="round"
               />
             );
           })}
         </svg>
 
-        {/* Interactive Kanto Town & Side-Trail Nodes */}
+        {/* Interactive Regional Kanto Town & Activity Pins */}
         {KANTO_LANDMARKS.map((landmark) => {
           const unlocked = isLandmarkUnlocked(landmark, progress);
           const isSelected = landmark.id === selectedNodeId;
@@ -242,11 +246,13 @@ export const KantoOverworldMap: React.FC<KantoOverworldMapProps> = ({
               id={
                 landmark.zoneId && landmark.kind === 'town'
                   ? `zone-card-${landmark.zoneId}`
-                  : landmark.kind === 'dojo'
-                    ? 'btn-open-blending-dojo'
-                    : landmark.kind === 'menu-camp'
-                      ? 'btn-open-menu-trainer'
-                      : `map-node-${landmark.id}`
+                  : landmark.kind === 'letter-lab'
+                    ? 'btn-open-letter-lab'
+                    : landmark.kind === 'dojo'
+                      ? 'btn-open-blending-dojo'
+                      : landmark.kind === 'menu-camp'
+                        ? 'btn-open-menu-trainer'
+                        : `map-node-${landmark.id}`
               }
               type="button"
               className={`map-node map-node--${landmark.kind} ${
@@ -256,9 +262,7 @@ export const KantoOverworldMap: React.FC<KantoOverworldMapProps> = ({
               }`}
               style={{ left: `${landmark.x}%`, top: `${landmark.y}%` }}
               onClick={() => travelToLandmark(landmark)}
-              aria-label={`${landmark.name} — ${landmark.challengeTitle}${
-                unlocked ? '' : ' (Locked)'
-              }`}
+              aria-label={`${landmark.name}${unlocked ? '' : ' (Locked)'}`}
             >
               <span
                 className="map-node__medallion"
@@ -272,11 +276,13 @@ export const KantoOverworldMap: React.FC<KantoOverworldMapProps> = ({
                 }}
               >
                 {!unlocked ? (
-                  <LockIcon size={16} />
+                  <LockIcon size={15} />
+                ) : landmark.kind === 'letter-lab' ? (
+                  <span className="map-node__az-badge">A–Z</span>
                 ) : landmark.kind === 'tall-grass' ? (
-                  <SparkleIcon size={18} color="#2EB56B" />
+                  <SparkleIcon size={17} color="#2EB56B" />
                 ) : (
-                  <PokeBallIcon size={20} color={landmark.accentColor} />
+                  <PokeBallIcon size={19} color={landmark.accentColor} />
                 )}
               </span>
 
@@ -285,7 +291,7 @@ export const KantoOverworldMap: React.FC<KantoOverworldMapProps> = ({
                 {landmark.kind === 'town' && unlocked && (
                   <span className="map-node__stars" aria-hidden="true">
                     {[0, 1, 2].map((i) => (
-                      <StarIcon key={i} size={11} filled={i < stars} />
+                      <StarIcon key={i} size={10} filled={i < stars} />
                     ))}
                   </span>
                 )}
@@ -294,7 +300,7 @@ export const KantoOverworldMap: React.FC<KantoOverworldMapProps> = ({
           );
         })}
 
-        {/* Animated Walking Eevee Standing Directly on the Painted Kanto Road */}
+        {/* Animated Walking Eevee Standing Directly on the Regional Kanto Road */}
         <div
           className={`map-eevee-walker ${isWalking ? 'map-eevee-walker--walking' : ''}`}
           style={{
@@ -309,16 +315,16 @@ export const KantoOverworldMap: React.FC<KantoOverworldMapProps> = ({
             style={{ transform: facingLeft ? 'scaleX(-1)' : 'scaleX(1)' }}
           >
             <EeveeAvatar
-              size={84}
+              size={76}
               mood={isWalking ? 'cheering' : 'idle'}
               equipped={progress.equippedAccessories}
             />
           </div>
         </div>
 
-        {/* Sleek Floating Switch Town Arrival Card (Bottom-Right) */}
+        {/* Ultra-Clean Minimal Bottom-Right Town Arrival Card (Zero Paragraphs!) */}
         <section
-          className="town-arrival-card"
+          className="town-arrival-card town-arrival-card--compact"
           aria-label={`Selected destination: ${selectedLandmark.name}`}
         >
           <div
@@ -328,54 +334,40 @@ export const KantoOverworldMap: React.FC<KantoOverworldMapProps> = ({
           <div className="town-arrival-card__content">
             <div className="town-arrival-card__header">
               <div>
-                <div className="town-arrival-card__kicker">
-                  {selectedLandmark.zoneId && selectedLandmark.kind === 'town'
-                    ? `Town ${selectedLandmark.zoneId} of 6`
-                    : 'Kanto Side Adventure'}
-                </div>
                 <h1 className="town-arrival-card__title">{selectedLandmark.name}</h1>
-                <div className="town-arrival-card__sub">
-                  {selectedLandmark.challengeTitle}
-                </div>
+                {selectedLandmark.kind === 'town' ? (
+                  <div className="town-arrival-card__stars" aria-label={`${selectedStars} of 3 stars`}>
+                    {[0, 1, 2].map((i) => (
+                      <StarIcon key={i} size={17} filled={i < selectedStars} />
+                    ))}
+                  </div>
+                ) : selectedLandmark.kind === 'letter-lab' ? (
+                  <div className="town-arrival-card__sub">
+                    {progress.masteredLetters.length} / 26 ★
+                  </div>
+                ) : (
+                  <div className="town-arrival-card__sub">{selectedLandmark.challengeTitle}</div>
+                )}
               </div>
               <PokemonSprite
                 pokemonId={selectedLandmark.featuredPokemonId}
                 name={selectedLandmark.featuredPokemonName}
-                size={68}
+                size={60}
               />
             </div>
-
-            {selectedLandmark.kind === 'town' && (
-              <div className="town-arrival-card__stars">
-                {[0, 1, 2].map((i) => (
-                  <StarIcon key={i} size={18} filled={i < selectedStars} />
-                ))}
-                <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--ink-muted)', marginLeft: '4px' }}>
-                  {selectedLandmark.description}
-                </span>
-              </div>
-            )}
 
             <button
               id="btn-arrival-launch"
               type="button"
               disabled={!selectedUnlocked || isWalking}
               className="switch-cta switch-cta--emerald"
-              style={{ width: '100%', minHeight: '54px' }}
+              style={{ width: '100%', minHeight: '50px', fontSize: '1.1rem' }}
               onClick={() => launchLandmark(selectedLandmark)}
             >
-              <span>
-                {isWalking ? 'Eevee is walking…' : selectedLandmark.ctaLabel}
-              </span>
+              <span>{isWalking ? '…' : selectedLandmark.ctaLabel}</span>
             </button>
           </div>
         </section>
-
-        {/* Subtle Bottom-Left Trail Guide Pill */}
-        <div className="map-hint-pill">
-          <SparkleIcon size={15} color="#F5B82E" />
-          <span>Tap any Kanto town to walk Eevee there!</span>
-        </div>
       </div>
     </main>
   );

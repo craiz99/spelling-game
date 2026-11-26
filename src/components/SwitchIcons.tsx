@@ -43,16 +43,17 @@ export const StarIcon: React.FC<{ size?: number; filled?: boolean; color?: strin
   </svg>
 );
 
-export const SpeakerIcon: React.FC<{ size?: number; muted?: boolean }> = ({
+export const SpeakerIcon: React.FC<{ size?: number; muted?: boolean; color?: string }> = ({
   size = 20,
   muted = false,
+  color = 'currentColor',
 }) => (
   <svg
     width={size}
     height={size}
     viewBox="0 0 24 24"
     fill="none"
-    stroke="currentColor"
+    stroke={color}
     strokeWidth="2.2"
     strokeLinecap="round"
     strokeLinejoin="round"

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { soundEffects } from '../audio/soundEffects';
 import { speechEngine } from '../audio/speechEngine';
 import type { LetterAudioMode, PhonemeUnit, WordEntry } from '../data/types';
+import { resolveWordPictureSlug } from '../data/wordPictures';
 import {
   evaluateTileSelection,
   findCorrectTileIdForActiveBox,
@@ -13,6 +14,7 @@ import {
 } from '../engine/phonicsEngine';
 import { getSuccessiveBlendSequence } from '../engine/blendingEngine';
 import { HeartIcon, PawPrintIcon, SpeakerIcon, SparkleIcon } from './SwitchIcons';
+import { WordPictureCard } from './WordPictureCard';
 
 interface ElkoninBoardProps {
   challenge: WordChallengeState;
@@ -24,6 +26,12 @@ interface ElkoninBoardProps {
 
 const IDLE_HINT_MS = 6500;
 
+/**
+ * Minimal-text, picture-first Elkonin Sound Box spelling tray matching the approved V3 Switch mockup:
+ * - Left: Painted Word Picture Card (tap to hear the word aloud!)
+ * - Center: Ceramic Elkonin sound boxes directly above tactile ceramic letter tiles
+ * - Right: Big round blue Speaker button (Hear Word) + warm caramel Paw button (Eevee Help!)
+ */
 export const ElkoninBoard: React.FC<ElkoninBoardProps> = ({
   challenge,
   letterAudioMode,
@@ -32,10 +40,10 @@ export const ElkoninBoard: React.FC<ElkoninBoardProps> = ({
   onWordBuilt,
 }) => {
   const [wiggleTileId, setWiggleTileId] = useState<string | null>(null);
-  const [activeHeartHint, setActiveHeartHint] = useState<string | null>(null);
 
   const word: WordEntry = challenge.word;
   const correctTileId = findCorrectTileIdForActiveBox(challenge);
+  const pictureSlug = resolveWordPictureSlug(word);
 
   // 6.5s idle safety net: gently shows the golden sparkle beacon & ghost letter
   useEffect(() => {
@@ -48,7 +56,7 @@ export const ElkoninBoard: React.FC<ElkoninBoardProps> = ({
         challenge.activeIndex !== null ? word.units[challenge.activeIndex] : null;
       if (activeUnit) {
         onCoachMessage(
-          `Look for the glowing tile to build ${word.focusWord}!`,
+          word.focusWord,
           `Take your time! Look for the glowing tile to build ${word.focusWord.toLowerCase()}!`,
           'encouraging',
         );
@@ -57,16 +65,9 @@ export const ElkoninBoard: React.FC<ElkoninBoardProps> = ({
     return () => window.clearTimeout(timer);
   }, [challenge, onChallengeChange, onCoachMessage, word]);
 
-  // Reset local Heart-Word hint when word changes
-  useEffect(() => {
-    const firstHeart = word.units.find((u) => u.isHeartWord && u.heartHint);
-    setActiveHeartHint(firstHeart?.heartHint ?? null);
-  }, [word]);
-
   const handleBoxTap = (unit: PhonemeUnit, isFilled: boolean) => {
     soundEffects.playTileTap();
     if (unit.isHeartWord && unit.heartHint) {
-      setActiveHeartHint(unit.heartHint);
       void speechEngine.speak(unit.heartHint);
       return;
     }
@@ -133,7 +134,7 @@ export const ElkoninBoard: React.FC<ElkoninBoardProps> = ({
     if (outcome.result === 'auto-assist-tier-3' && outcome.expectedUnit) {
       soundEffects.playCorrectPop();
       onCoachMessage(
-        `Eevee placed "${outcome.expectedUnit.letters}" for you! Great teamwork!`,
+        outcome.expectedUnit.letters,
         `Eevee placed that sound for you! Great teamwork!`,
         'happy',
       );
@@ -152,7 +153,7 @@ export const ElkoninBoard: React.FC<ElkoninBoardProps> = ({
     soundEffects.playCorrectPop();
     onChallengeChange(nextState);
     onCoachMessage(
-      `Eevee helped place "${placedUnit.letters}"! Let's keep going!`,
+      placedUnit.letters,
       `Eevee placed that sound for you! Great teamwork!`,
       'happy',
     );
@@ -205,137 +206,136 @@ export const ElkoninBoard: React.FC<ElkoninBoardProps> = ({
   });
 
   return (
-    <div className="elkonin-stage-inner" aria-label={`Spell ${word.displayWord}`}>
-      <div className="word-context-strip">
-        <p className="word-context-sentence">{word.everydaySentence}</p>
+    <div className="minimal-battle-tray" aria-label={`Spell ${word.displayWord}`}>
+      {/* Left: Painted Word Picture Card (tap to hear word aloud) */}
+      <WordPictureCard
+        pictureSlug={pictureSlug}
+        itemSlug={word.itemSlug}
+        pokemonId={word.pokemonId}
+        label={word.displayWord}
+        size="md"
+        onTap={handleHearWord}
+      />
+
+      {/* Center: Ceramic Elkonin Boxes + Ceramic Sound Tiles */}
+      <div className="minimal-battle-tray__center">
+        <div className="elkonin-row" role="group" aria-label="Elkonin sound boxes">
+          {word.prefixDisplay && (
+            <span className="focus-affix" aria-hidden="true">
+              {word.prefixDisplay}
+            </span>
+          )}
+
+          {word.units.map((unit, idx) => {
+            const isFilled = challenge.filledMask[idx] ?? false;
+            const isActive = challenge.activeIndex === idx;
+            const showGhost = isActive && challenge.showGhostLetter;
+
+            return (
+              <button
+                key={`${word.id}-box-${idx}`}
+                id={`elkonin-box-${idx}`}
+                type="button"
+                onClick={() => handleBoxTap(unit, isFilled)}
+                className={`elkonin-box ${
+                  isFilled
+                    ? 'elkonin-box--filled'
+                    : isActive
+                      ? 'elkonin-box--empty elkonin-box--active switch-cursor-glow'
+                      : 'elkonin-box--empty'
+                }`}
+                aria-label={
+                  isFilled
+                    ? `Sound box ${idx + 1}: ${unit.letters}. Tap to hear sound.`
+                    : `Missing sound box ${idx + 1}. Tap to hear a sound hint.`
+                }
+              >
+                {isFilled ? (
+                  <span>{unit.letters}</span>
+                ) : showGhost ? (
+                  <span className="elkonin-ghost">{unit.letters}</span>
+                ) : (
+                  <span style={{ color: '#94A3B8', fontSize: '1.5rem' }}>?</span>
+                )}
+
+                {unit.isHeartWord && (
+                  <span
+                    className="heart-badge"
+                    title={unit.heartHint || 'Heart Word'}
+                    aria-label="Heart Word hint"
+                  >
+                    <HeartIcon size={13} color="#E11D48" />
+                  </span>
+                )}
+              </button>
+            );
+          })}
+
+          {word.suffixDisplay && (
+            <span className="focus-affix" aria-hidden="true">
+              {word.suffixDisplay}
+            </span>
+          )}
+        </div>
+
+        <div className="tile-tray" role="group" aria-label="Letter sound tiles">
+          {challenge.tiles.map((tile) => {
+            const isBeaconTarget =
+              challenge.showBeacon && !tile.used && tile.id === correctTileId;
+            const isWiggling = wiggleTileId === tile.id;
+
+            return (
+              <button
+                key={tile.id}
+                id={`tile-${tile.id}`}
+                type="button"
+                disabled={tile.used}
+                onClick={() => handleTileSelect(tile.id)}
+                className={`phoneme-tile ${isBeaconTarget ? 'switch-cursor-glow' : ''} ${
+                  isWiggling ? 'phoneme-tile--wiggle' : ''
+                }`}
+                aria-label={`Letter tile ${tile.letters}`}
+              >
+                {tile.letters}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Elkonin Sound Boxes with Smart Focus-Chunking */}
-      <div className="elkonin-row" role="group" aria-label="Elkonin sound boxes">
-        {word.prefixDisplay && (
-          <span className="focus-affix" aria-hidden="true">
-            {word.prefixDisplay}
-          </span>
-        )}
-
-        {word.units.map((unit, idx) => {
-          const isFilled = challenge.filledMask[idx] ?? false;
-          const isActive = challenge.activeIndex === idx;
-          const showGhost = isActive && challenge.showGhostLetter;
-
-          return (
-            <button
-              key={`${word.id}-box-${idx}`}
-              id={`elkonin-box-${idx}`}
-              type="button"
-              onClick={() => handleBoxTap(unit, isFilled)}
-              className={`elkonin-box ${
-                isFilled
-                  ? 'elkonin-box--filled'
-                  : isActive
-                    ? 'elkonin-box--empty elkonin-box--active switch-cursor-glow'
-                    : 'elkonin-box--empty'
-              }`}
-              aria-label={
-                isFilled
-                  ? `Sound box ${idx + 1}: ${unit.letters}. Tap to hear sound.`
-                  : `Missing sound box ${idx + 1}. Tap to hear a sound hint.`
-              }
-            >
-              {isFilled ? (
-                <span>{unit.letters}</span>
-              ) : showGhost ? (
-                <span className="elkonin-ghost">{unit.letters}</span>
-              ) : (
-                <span style={{ color: '#94A3B8', fontSize: '1.5rem' }}>?</span>
-              )}
-
-              {unit.isHeartWord && (
-                <span
-                  className="heart-badge"
-                  title={unit.heartHint || 'Heart Word tricky part'}
-                  aria-label="Heart Word hint"
-                >
-                  <HeartIcon size={13} color="#E11D48" />
-                </span>
-              )}
-            </button>
-          );
-        })}
-
-        {word.suffixDisplay && (
-          <span className="focus-affix" aria-hidden="true">
-            {word.suffixDisplay}
-          </span>
-        )}
-      </div>
-
-      {activeHeartHint && (
-        <button
-          type="button"
-          className="heart-hint-bar"
-          onClick={() => void speechEngine.speak(activeHeartHint)}
-        >
-          <HeartIcon size={15} color="#E11D48" />
-          <span>{activeHeartHint}</span>
-        </button>
-      )}
-
-      {/* Tactile Ceramic Switch Keycap Tile Tray */}
-      <div className="tile-tray" role="group" aria-label="Letter sound tiles">
-        {challenge.tiles.map((tile) => {
-          const isBeaconTarget =
-            challenge.showBeacon && !tile.used && tile.id === correctTileId;
-          const isWiggling = wiggleTileId === tile.id;
-
-          return (
-            <button
-              key={tile.id}
-              id={`tile-${tile.id}`}
-              type="button"
-              disabled={tile.used}
-              onClick={() => handleTileSelect(tile.id)}
-              className={`phoneme-tile ${isBeaconTarget ? 'switch-cursor-glow' : ''} ${
-                isWiggling ? 'phoneme-tile--wiggle' : ''
-              }`}
-              aria-label={`Letter tile ${tile.letters}`}
-            >
-              {tile.letters}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Voice Guidance & Anti-Frustration Action Bar */}
-      <div className="action-row">
+      {/* Right: Big Tactile Round Icon Buttons (Speaker, Sound Out, Eevee Help) */}
+      <div className="minimal-battle-tray__actions">
         <button
           id="btn-hear-word"
           type="button"
-          className="switch-cta switch-cta--blue"
+          className="icon-circle-btn icon-circle-btn--blue"
           onClick={handleHearWord}
+          aria-label="Hear Word"
+          title="Hear Word"
         >
-          <SpeakerIcon size={20} />
-          <span>Hear Word</span>
+          <SpeakerIcon size={26} color="#FFFFFF" />
         </button>
 
         <button
           id="btn-sound-it-out"
           type="button"
-          className="switch-cta switch-cta--ghost"
+          className="icon-circle-btn icon-circle-btn--sky"
           onClick={handleSoundItOut}
+          aria-label="Sound It Out"
+          title="Sound It Out"
         >
-          <SparkleIcon size={18} color="#2C98F0" />
-          <span>Sound It Out</span>
+          <SparkleIcon size={24} color="#2C98F0" />
         </button>
 
         <button
           id="btn-eevee-help"
           type="button"
-          className="switch-cta switch-cta--caramel"
+          className="icon-circle-btn icon-circle-btn--caramel"
           onClick={handleEeveeHelp}
+          aria-label="Eevee Help"
+          title="Eevee Help"
         >
-          <PawPrintIcon size={22} color="#FFFFFF" />
-          <span>Eevee Help!</span>
+          <PawPrintIcon size={26} color="#FFFFFF" />
         </button>
       </div>
     </div>
