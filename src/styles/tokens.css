@@ -1,0 +1,54 @@
+:root {
+  /* Authentic Nintendo Switch Pokémon: Let's Go, Eevee! Color System */
+  --bg-sky-top: #8ad2f9;
+  --bg-sky-mid: #cdeeff;
+  --bg-horizon: #f3f9fc;
+  --bg-meadow-light: #bfe698;
+  --bg-meadow-deep: #7fc85e;
+
+  --surface-white: #ffffff;
+  --surface-pearl: #f7f9fc;
+  --surface-subtle: #eef3f9;
+  --border-soft: #dce5f0;
+  --border-medium: #cbd5e1;
+
+  --ink-primary: #1e2b3c;
+  --ink-secondary: #51637a;
+  --ink-muted: #7b8da4;
+
+  /* Switch Action & Accent Palette */
+  --switch-cyan: #22c3dc;
+  --switch-cyan-soft: rgba(34, 195, 220, 0.24);
+  --switch-gold: #f5b82e;
+  --switch-gold-deep: #c98a10;
+  --switch-gold-soft: rgba(245, 184, 46, 0.35);
+  --eevee-caramel: #c78d4e;
+  --eevee-caramel-dark: #9c662e;
+
+  --switch-red: #e64545;
+  --switch-orange: #f2992e;
+  --switch-emerald: #2eb56b;
+  --switch-emerald-dark: #1d8f52;
+  --switch-blue: #2c98f0;
+  --switch-blue-dark: #1976d2;
+  --switch-coral: #f06277;
+
+  /* Shadows — Soft Nintendo Switch Elevation (Zero Cartoon Outlines) */
+  --shadow-card: 0 8px 24px rgba(15, 35, 65, 0.1), 0 2px 6px rgba(15, 35, 65, 0.05);
+  --shadow-pill: 0 4px 14px rgba(15, 35, 65, 0.11);
+  --shadow-keycap: 0 4px 0 #cfd8e5, 0 8px 18px rgba(15, 35, 65, 0.09);
+  --shadow-keycap-pressed: 0 1px 0 #cfd8e5, 0 2px 6px rgba(15, 35, 65, 0.08);
+
+  /* Typography — Clean Rounded Single-Story Child-Friendly Stack */
+  --font-display: 'Fredoka', 'Nunito', ui-rounded, 'SF Pro Rounded', system-ui, sans-serif;
+  --font-body: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+
+  /* Radii & Touch Targets */
+  --radius-sm: 12px;
+  --radius-md: 18px;
+  --radius-lg: 24px;
+  --radius-xl: 30px;
+  --radius-pill: 9999px;
+  --touch-min: 64px;
+  --tile-size: 74px;
+}
