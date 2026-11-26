@@ -13,6 +13,7 @@ import type {
 import type { BattleState } from './engine/battleEngine';
 import {
   loadProgress,
+  recordSinglePokemonCatch,
   recordWordAttempt,
   resetProgress,
   saveProgress,
@@ -29,7 +30,7 @@ import { KantoOverworldMap } from './components/KantoOverworldMap';
 import { LetterLabScreen } from './components/LetterLabScreen';
 import { MenuTrainerScreen } from './components/MenuTrainerScreen';
 import { ParentSettingsModal } from './components/ParentSettingsModal';
-import { StickerBookModal } from './components/StickerBookModal';
+import { StickerBookModal, type StickerBookTab } from './components/StickerBookModal';
 import { TopHud } from './components/TopHud';
 import { WelcomeOverlay } from './components/WelcomeOverlay';
 
@@ -50,6 +51,7 @@ export const App: React.FC<AppProps> = ({ skipWelcome = false }) => {
   const [screen, setScreen] = useState<ActiveScreen>({ type: 'home' });
   const [showWelcome, setShowWelcome] = useState<boolean>(!skipWelcome);
   const [openModal, setOpenModal] = useState<'none' | 'sticker-book' | 'closet' | 'settings'>('none');
+  const [bookInitialTab, setBookInitialTab] = useState<StickerBookTab>('pokemon');
   const [badgeQueue, setBadgeQueue] = useState<BadgeDef[]>([]);
 
   useEffect(() => {
@@ -90,8 +92,15 @@ export const App: React.FC<AppProps> = ({ skipWelcome = false }) => {
   }, []);
 
   const handleRecordWord = useCallback(
-    (wordId: string, meta: { usedHelp: boolean; wrongAttempts: number }) => {
+    (wordId: string, meta: { usedHelp: boolean; wrongAttempts: number; focusWord?: string }) => {
       applyProgressUpdate((prev) => recordWordAttempt(prev, wordId, meta));
+    },
+    [applyProgressUpdate],
+  );
+
+  const handlePokemonCaught = useCallback(
+    (pokemonId: number, townName: string) => {
+      applyProgressUpdate((prev) => recordSinglePokemonCatch(prev, pokemonId, townName));
     },
     [applyProgressUpdate],
   );
@@ -154,15 +163,14 @@ export const App: React.FC<AppProps> = ({ skipWelcome = false }) => {
     (letter: string, pokemonId: number) => {
       applyProgressUpdate((prev) => {
         const upper = letter.toUpperCase();
-        const nextLetters = prev.masteredLetters.includes(upper)
-          ? prev.masteredLetters
-          : [...prev.masteredLetters, upper];
-        const nextPokemon = Array.from(new Set([...prev.caughtPokemonIds, pokemonId]));
+        const withCatch = recordSinglePokemonCatch(prev, pokemonId, "Oak's A–Z Safari");
+        const nextLetters = withCatch.masteredLetters.includes(upper)
+          ? withCatch.masteredLetters
+          : [...withCatch.masteredLetters, upper];
         return {
-          ...prev,
-          totalStars: prev.totalStars + 1,
+          ...withCatch,
+          totalStars: withCatch.totalStars + 1,
           masteredLetters: nextLetters,
-          caughtPokemonIds: nextPokemon,
         };
       });
     },
@@ -229,9 +237,16 @@ export const App: React.FC<AppProps> = ({ skipWelcome = false }) => {
     <div className="game-root">
       <TopHud
         totalStars={progress.totalStars}
-        bagItemsCount={progress.bagItemsCount}
+        caughtPokemonCount={progress.caughtPokemonIds.length}
         voiceMuted={voiceMuted}
-        onOpenStickerBook={() => setOpenModal('sticker-book')}
+        onOpenPokedex={() => {
+          setBookInitialTab('pokemon');
+          setOpenModal('sticker-book');
+        }}
+        onOpenStickerBook={() => {
+          setBookInitialTab('badges');
+          setOpenModal('sticker-book');
+        }}
         onOpenCloset={() => setOpenModal('closet')}
         onToggleMute={handleToggleMute}
         onOpenSettings={() => setOpenModal('settings')}
@@ -261,6 +276,7 @@ export const App: React.FC<AppProps> = ({ skipWelcome = false }) => {
           zoneId={screen.zoneId}
           progress={progress}
           onRecordWord={handleRecordWord}
+          onPokemonCaught={handlePokemonCaught}
           onBlendDone={handleBlendDone}
           onBattleComplete={handleBattleComplete}
           onExit={() => setScreen({ type: 'home' })}
@@ -295,6 +311,7 @@ export const App: React.FC<AppProps> = ({ skipWelcome = false }) => {
       {openModal === 'sticker-book' && (
         <StickerBookModal
           progress={progress}
+          initialTab={bookInitialTab}
           onClose={() => setOpenModal('none')}
         />
       )}
@@ -317,7 +334,7 @@ export const App: React.FC<AppProps> = ({ skipWelcome = false }) => {
         />
       )}
 
-      {activeBadge && !showWelcome && (
+      {activeBadge && !showWelcome && screen.type === 'home' && (
         <BadgeCeremonyModal
           badge={activeBadge}
           onDismiss={() => setBadgeQueue((q) => q.slice(1))}

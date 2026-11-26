@@ -51,6 +51,10 @@ export function getWordPictureUrl(slug: string): string {
  * its official PokéAPI item sprite or Pokémon official artwork instead).
  */
 export function resolveWordPictureSlug(word: WordEntry): string | null {
+  // For Zone 4 Curatives, show the authentic official Let's Go curative medicine bottle!
+  if (word.category === 'curative' && word.itemSlug) {
+    return null;
+  }
   if (word.pictureSlug && PAINTED_WORD_SLUGS.has(word.pictureSlug)) {
     return word.pictureSlug;
   }

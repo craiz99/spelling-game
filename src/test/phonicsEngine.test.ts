@@ -43,12 +43,25 @@ describe('Phonics Engine — Scaffolding, Mirror Filter & 3-Tier Safety Net', ()
     ).toBe('explorer');
   });
 
-  it('builds Starter challenges with exactly 1 blank box', () => {
-    const word = getWordById('z1-sun')!;
-    const challenge = buildWordChallenge(word, 'starter', () => 0.4);
-    const blankCount = challenge.filledMask.filter((filled) => !filled).length;
-    expect(blankCount).toBe(1);
-    expect(challenge.activeIndex).not.toBeNull();
+  it('builds Starter challenges with first letter (index 0) ALWAYS pre-filled and strictly single-letter tiles by default', () => {
+    const sun = getWordById('z1-sun')!;
+    const challenge = buildWordChallenge(sun, 'starter', () => 0.4, 'single-letters');
+    expect(challenge.filledMask[0]).toBe(true);
+    expect(challenge.filledMask.filter((filled) => !filled)).toHaveLength(1);
+    expect(challenge.activeIndex).toBeGreaterThan(0);
+
+    // Even multi-letter digraph/curative words strictly use 1-letter tiles in default single-letters mode!
+    const shop = getWordById('z3-shop')!;
+    const shopChallenge = buildWordChallenge(shop, 'starter', () => 0.3, 'single-letters');
+    expect(shopChallenge.filledMask[0]).toBe(true);
+    expect(shopChallenge.units).toHaveLength(4); // S H O P
+    expect(shopChallenge.tiles.every((t) => t.letters.length === 1)).toBe(true);
+
+    const potion = getWordById('z4-potion')!;
+    const potionChallenge = buildWordChallenge(potion, 'starter', () => 0.2, 'single-letters');
+    expect(potionChallenge.filledMask[0]).toBe(true);
+    expect(potionChallenge.units).toHaveLength(6); // P O T I O N
+    expect(potionChallenge.tiles.every((t) => t.letters.length === 1)).toBe(true);
   });
 
   it('suppresses mirror-confusion distractors (B/D, P/Q, M/W, N/U, S/Z) in Zones 1–2', () => {

@@ -32,10 +32,10 @@ describe('Kanto Overworld Map Navigation Engine', () => {
     }
   });
 
-  it('assigns a distinct authentic gameplay challenge mode to each of the 6 towns', () => {
+  it('assigns authentic gameplay challenge modes across all 6 towns including Pewter Rock Gym', () => {
     expect(getTownChallengeMode(1)).toBe('wild-catch');
     expect(getTownChallengeMode(2)).toBe('forest-trail');
-    expect(getTownChallengeMode(3)).toBe('mart-quest');
+    expect(getTownChallengeMode(3)).toBe('gym-battle');
     expect(getTownChallengeMode(4)).toBe('clinic-heal');
     expect(getTownChallengeMode(5)).toBe('gym-battle');
     expect(getTownChallengeMode(6)).toBe('champion-gauntlet');

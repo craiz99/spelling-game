@@ -13,6 +13,7 @@ import {
   OVERWORLD_ROADS,
   type MapLandmark,
 } from '../engine/overworldEngine';
+import { AmbientSceneLayer } from './AmbientSceneLayer';
 import { EeveeAvatar } from './EeveeAvatar';
 import { PokemonSprite } from './PokemonSprite';
 import { LockIcon, PokeBallIcon, SparkleIcon, StarIcon } from './SwitchIcons';
@@ -201,6 +202,9 @@ export const KantoOverworldMap: React.FC<KantoOverworldMapProps> = ({
           className="overworld-map-img"
           draggable={false}
         />
+
+        {/* Living Drifting Clouds & Sparkling Ocean Glints */}
+        <AmbientSceneLayer biome="world-map" />
 
         {/* Subtle Glowing Dotted Adventure Roads */}
         <svg

@@ -6,6 +6,7 @@ import { WORD_CHAINS } from '../data/wordChains';
 import { resolveRawWordPictureSlug } from '../data/wordPictures';
 import type { EeveeMood, PlayerProgress } from '../data/types';
 import { getSceneUrl } from '../engine/overworldEngine';
+import { AmbientSceneLayer } from './AmbientSceneLayer';
 import { EeveeAvatar } from './EeveeAvatar';
 import { PawSlideBlender } from './PawSlideBlender';
 import { PokemonSprite } from './PokemonSprite';
@@ -157,6 +158,7 @@ export const BlendingDojoScreen: React.FC<BlendingDojoScreenProps> = ({
       aria-label="Eevee's Blending Dojo"
     >
       <div className="scene-scrim" />
+      <AmbientSceneLayer biome="dojo" />
 
       <div className="scene-top-bar">
         <button

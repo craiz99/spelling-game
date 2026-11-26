@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { PokeBallIcon, SparkleIcon, StarIcon } from './SwitchIcons';
+import { SparkleIcon, StarIcon } from './SwitchIcons';
 
 export type CaptureBeat = 'arc' | 'impact' | 'drop' | 'wobble' | 'caught';
 
@@ -9,6 +9,7 @@ export interface PokeBallCaptureLayerProps {
   targetRef: React.RefObject<HTMLElement | null>;
   targetName: string;
   onHitTarget?: () => void;
+  onCaughtLock?: () => void;
 }
 
 interface TrajectoryCoords {
@@ -20,11 +21,64 @@ interface TrajectoryCoords {
 }
 
 /**
- * True target-locked 5-beat Poké Ball capture animation!
- * Dynamically measures Eevee's and the wild Pokémon's exact bounding rects
- * inside the arena so the Poké Ball ALWAYS arcs dead-center onto the target,
- * opens a red-gold capture ring, pulls the Pokémon inside, drops onto its
- * ground shadow, wobbles 3 times, and bursts with golden catch stars.
+ * Detailed Switch-style Poké Ball with live center-button indicator states:
+ * - 'idle': glossy white center button
+ * - 'wiggle-pulse': warm red pulsing button while rocking on each of the 3 wiggles
+ * - 'caught-light': bright glowing cyan-emerald capture lock-in light on the front!
+ */
+const AnimatedCaptureBall: React.FC<{
+  buttonState: 'idle' | 'wiggle-pulse' | 'caught-light';
+  size?: number;
+}> = ({ buttonState, size = 62 }) => {
+  const isPulse = buttonState === 'wiggle-pulse';
+  const isCaught = buttonState === 'caught-light';
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 64 64"
+      fill="none"
+      aria-hidden="true"
+    >
+      {/* Top red hemisphere */}
+      <circle cx="32" cy="32" r="28" fill="#E64545" stroke="#1E2B3C" strokeWidth="3.2" />
+      {/* Glossy top highlight */}
+      <ellipse cx="23" cy="18" rx="8" ry="4.5" transform="rotate(-24 23 18)" fill="#FFFFFF" opacity="0.45" />
+      {/* Bottom white hemisphere */}
+      <path d="M4.2 32 A27.8 27.8 0 0 0 59.8 32 Z" fill="#F8FAFC" />
+      {/* Center dark band */}
+      <line x1="4" y1="32" x2="60" y2="32" stroke="#1E2B3C" strokeWidth="4.6" />
+      {/* Center button outer housing */}
+      <circle cx="32" cy="32" r="10.2" fill="#FFFFFF" stroke="#1E2B3C" strokeWidth="3.4" />
+      {/* Front center button indicator light! */}
+      <circle
+        cx="32"
+        cy="32"
+        r={isCaught ? '6.2' : '5.2'}
+        fill={isCaught ? '#34D399' : isPulse ? '#F43F5E' : '#E2E8F0'}
+        stroke={isCaught ? '#A7F3D0' : '#475569'}
+        strokeWidth={isCaught ? '1.8' : '1.2'}
+      />
+      {isCaught && (
+        <>
+          <circle cx="32" cy="32" r="3" fill="#FFFFFF" opacity="0.95" />
+          <circle cx="32" cy="32" r="15" stroke="#6EE7B7" strokeWidth="2.4" opacity="0.85" />
+        </>
+      )}
+    </svg>
+  );
+};
+
+/**
+ * Authentic Pokémon: Let's Go, Eevee! 5-beat target-locked Poké Ball capture physics:
+ * 1. Arc (0–420ms): Parabolic throw dead-center onto the wild Pokémon
+ * 2. Impact (420–720ms): Red-gold capture ring flashes while Pokémon shrinks inside
+ * 3. Drop (720–980ms): Ball drops & bounces onto the target's ground shadow
+ * 4. 3 Distinct Wiggles (980–2480ms): 3 crisp wiggles (500ms each: 260ms rock + 240ms pause)
+ *    with pulsing red center button
+ * 5. Front Capture Light Lock-In (2480ms+): Bright glowing green/white light on the front
+ *    center button + click fanfare + 3 golden stars bursting above!
  */
 export const PokeBallCaptureLayer: React.FC<PokeBallCaptureLayerProps> = ({
   arenaRef,
@@ -32,6 +86,7 @@ export const PokeBallCaptureLayer: React.FC<PokeBallCaptureLayerProps> = ({
   targetRef,
   targetName,
   onHitTarget,
+  onCaughtLock,
 }) => {
   const [coords, setCoords] = useState<TrajectoryCoords>({
     startX: 170,
@@ -41,15 +96,21 @@ export const PokeBallCaptureLayer: React.FC<PokeBallCaptureLayerProps> = ({
     groundY: 205,
   });
   const [beat, setBeat] = useState<CaptureBeat>('arc');
+  const [wiggleNum, setWiggleNum] = useState(0);
+  const [isRocking, setIsRocking] = useState(false);
   const [ballPos, setBallPos] = useState<{ x: number; y: number; rot: number; scale: number }>({
     x: 170,
     y: 160,
     rot: 0,
     scale: 0.9,
   });
+
   const hitFiredRef = useRef(false);
+  const lockFiredRef = useRef(false);
   const onHitRef = useRef(onHitTarget);
+  const onLockRef = useRef(onCaughtLock);
   onHitRef.current = onHitTarget;
+  onLockRef.current = onCaughtLock;
 
   useLayoutEffect(() => {
     const arenaEl = arenaRef.current;
@@ -68,8 +129,8 @@ export const PokeBallCaptureLayer: React.FC<PokeBallCaptureLayerProps> = ({
       startX: eRect.left - aRect.left + eRect.width * 0.65,
       startY: eRect.top - aRect.top + eRect.height * 0.36,
       targetX: tRect.left - aRect.left + tRect.width * 0.5,
-      targetY: tRect.top - aRect.top + tRect.height * 0.44,
-      groundY: tRect.bottom - aRect.top - 28,
+      targetY: tRect.top - aRect.top + tRect.height * 0.42,
+      groundY: tRect.bottom - aRect.top - 42,
     };
 
     setCoords(measured);
@@ -83,7 +144,10 @@ export const PokeBallCaptureLayer: React.FC<PokeBallCaptureLayerProps> = ({
 
   useEffect(() => {
     hitFiredRef.current = false;
+    lockFiredRef.current = false;
     setBeat('arc');
+    setWiggleNum(0);
+    setIsRocking(false);
 
     const startTime = performance.now();
     let rafId = 0;
@@ -94,9 +158,9 @@ export const PokeBallCaptureLayer: React.FC<PokeBallCaptureLayerProps> = ({
     const tick = (now: number) => {
       const elapsed = now - startTime;
 
-      if (elapsed < 440) {
+      if (elapsed < 420) {
         // Beat 1: Parabolic arc straight into target center
-        const t = elapsed / 440;
+        const t = elapsed / 420;
         const ease = 1 - Math.pow(1 - t, 1.45);
         const inv = 1 - ease;
         const x =
@@ -118,10 +182,10 @@ export const PokeBallCaptureLayer: React.FC<PokeBallCaptureLayerProps> = ({
         onHitRef.current?.();
       }
 
-      if (elapsed < 760) {
+      if (elapsed < 720) {
         // Beat 2: Impact & glowing red-gold capture ring centered on target
         setBeat('impact');
-        const t = (elapsed - 440) / 320;
+        const t = (elapsed - 420) / 300;
         const recoilY = coords.targetY - Math.sin(t * Math.PI) * 26;
         setBallPos({
           x: coords.targetX,
@@ -133,35 +197,62 @@ export const PokeBallCaptureLayer: React.FC<PokeBallCaptureLayerProps> = ({
         return;
       }
 
-      if (elapsed < 1020) {
+      if (elapsed < 980) {
         // Beat 3: Drop & bounce onto target ground shadow
         setBeat('drop');
-        const t = (elapsed - 760) / 260;
-        const bounce = t < 0.72 ? (t / 0.72) * (t / 0.72) : 1 - Math.sin(((t - 0.72) / 0.28) * Math.PI) * 0.16;
+        const t = (elapsed - 720) / 260;
+        const bounce =
+          t < 0.72
+            ? (t / 0.72) * (t / 0.72)
+            : 1 - Math.sin(((t - 0.72) / 0.28) * Math.PI) * 0.16;
         const y = coords.targetY + (coords.groundY - coords.targetY) * bounce;
-        setBallPos({ x: coords.targetX, y, rot: 720, scale: 1 });
+        setBallPos({ x: coords.targetX, y, rot: 0, scale: 1 });
         rafId = window.requestAnimationFrame(tick);
         return;
       }
 
-      if (elapsed < 1620) {
-        // Beat 4: 3 suspenseful left-right wobbles on the ground
+      if (elapsed < 2480) {
+        // Beat 4: 3 distinct Pokémon-style wiggles (500ms each: 260ms rock + 240ms suspenseful pause)
         setBeat('wobble');
-        const t = (elapsed - 1020) / 600;
-        const wobbleAngle = Math.sin(t * Math.PI * 6) * (22 * (1 - t * 0.35));
-        setBallPos({ x: coords.targetX, y: coords.groundY, rot: wobbleAngle, scale: 1 });
+        const wobbleElapsed = elapsed - 980;
+        const currentWiggle = Math.min(3, Math.floor(wobbleElapsed / 500) + 1);
+        const phaseInWiggle = wobbleElapsed % 500;
+        setWiggleNum(currentWiggle);
+
+        if (phaseInWiggle < 260) {
+          // Crisp rock left -> right -> center
+          const rt = phaseInWiggle / 260;
+          const angle = Math.sin(rt * Math.PI * 2) * (currentWiggle === 3 ? 20 : 24);
+          const shiftX = Math.sin(rt * Math.PI * 2) * 5;
+          setIsRocking(true);
+          setBallPos({ x: coords.targetX + shiftX, y: coords.groundY, rot: angle, scale: 1 });
+        } else {
+          // Suspenseful still pause between wiggles
+          setIsRocking(false);
+          setBallPos({ x: coords.targetX, y: coords.groundY, rot: 0, scale: 1 });
+        }
+
         rafId = window.requestAnimationFrame(tick);
         return;
       }
 
-      // Beat 5: Caught! Click & golden star burst
+      // Beat 5 (2480ms+): Caught! Front center button lights up bright green-white + golden stars!
+      if (!lockFiredRef.current) {
+        lockFiredRef.current = true;
+        onLockRef.current?.();
+      }
       setBeat('caught');
-      setBallPos({ x: coords.targetX, y: coords.groundY, rot: 0, scale: 1.05 });
+      setIsRocking(false);
+      setWiggleNum(3);
+      setBallPos({ x: coords.targetX, y: coords.groundY, rot: 0, scale: 1.06 });
     };
 
     rafId = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(rafId);
   }, [coords]);
+
+  const buttonState =
+    beat === 'caught' ? 'caught-light' : beat === 'wobble' && isRocking ? 'wiggle-pulse' : 'idle';
 
   return (
     <div
@@ -170,6 +261,7 @@ export const PokeBallCaptureLayer: React.FC<PokeBallCaptureLayerProps> = ({
       aria-label={`Catching ${targetName}`}
       data-testid="pokeball-capture-layer"
       data-beat={beat}
+      data-wiggle={wiggleNum}
     >
       {/* Red-gold Let's Go capture ring right on top of the Pokémon during impact */}
       {beat === 'impact' && (
@@ -196,11 +288,20 @@ export const PokeBallCaptureLayer: React.FC<PokeBallCaptureLayerProps> = ({
       {(beat === 'drop' || beat === 'wobble' || beat === 'caught') && (
         <div
           className="capture-ball-shadow"
-          style={{ left: `${coords.targetX}px`, top: `${coords.groundY + 24}px` }}
+          style={{ left: `${coords.targetX}px`, top: `${coords.groundY + 26}px` }}
         />
       )}
 
-      {/* Target-locked Poké Ball */}
+      {/* Radiant front capture-lock glow behind the Poké Ball after the 3rd wiggle */}
+      {beat === 'caught' && (
+        <div
+          className="capture-front-light-aura"
+          style={{ left: `${coords.targetX}px`, top: `${coords.groundY}px` }}
+          data-testid="capture-front-light"
+        />
+      )}
+
+      {/* Target-locked Poké Ball with live center-button indicator */}
       <div
         className={`capture-pokeball ${beat === 'caught' ? 'capture-pokeball--caught' : ''}`}
         style={{
@@ -210,14 +311,14 @@ export const PokeBallCaptureLayer: React.FC<PokeBallCaptureLayerProps> = ({
         }}
         data-testid="capture-pokeball"
       >
-        <PokeBallIcon size={58} color="#E64545" />
+        <AnimatedCaptureBall buttonState={buttonState} size={62} />
       </div>
 
-      {/* Beat 5: Golden star burst directly above the captured Poké Ball */}
+      {/* Beat 5: Golden star burst directly above the locked Poké Ball */}
       {beat === 'caught' && (
         <div
           className="capture-stars-burst"
-          style={{ left: `${coords.targetX}px`, top: `${coords.groundY - 46}px` }}
+          style={{ left: `${coords.targetX}px`, top: `${coords.groundY - 50}px` }}
           data-testid="capture-stars-burst"
         >
           <span className="capture-star capture-star--left">
@@ -235,9 +336,13 @@ export const PokeBallCaptureLayer: React.FC<PokeBallCaptureLayerProps> = ({
       {beat === 'caught' && (
         <div
           className="vfx-callout-pill vfx-callout-pill--catch"
-          style={{ left: `${coords.targetX}px`, top: `${Math.max(12, coords.targetY - 102)}px`, transform: 'translateX(-50%)' }}
+          style={{
+            left: `${coords.targetX}px`,
+            top: `${Math.max(12, coords.targetY - 104)}px`,
+            transform: 'translateX(-50%)',
+          }}
         >
-          Gotcha!
+          Gotcha! {targetName}!
         </div>
       )}
     </div>

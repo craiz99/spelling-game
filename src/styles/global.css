@@ -2176,6 +2176,507 @@ select:focus-visible {
   justify-content: center;
 }
 
+/* ============================================================================
+   V4: Living Animated World & Biomes, Status Effect Overlays, Front Capture Light,
+   Pokédex Silhouettes, Compact A–Z Safari Ribbon, & Digraph Team Brackets
+============================================================================ */
+.scene-viewport::before {
+  content: '';
+  position: absolute;
+  inset: -14px;
+  background-image: inherit;
+  background-size: cover;
+  background-position: center center;
+  z-index: 0;
+  animation: backdropBreathe 24s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes backdropBreathe {
+  0% { transform: scale(1) translate3d(0, 0, 0); }
+  100% { transform: scale(1.038) translate3d(-8px, -4px, 0); }
+}
+
+.ambient-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.ambient-cloud {
+  position: absolute;
+  height: 36px;
+  border-radius: 999px;
+  background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0) 72%);
+  filter: blur(4px);
+  animation: cloudDrift 34s linear infinite;
+}
+
+.ambient-cloud--1 { top: 6%; width: 240px; left: -240px; animation-duration: 38s; }
+.ambient-cloud--2 { top: 14%; width: 190px; left: -190px; animation-delay: -14s; animation-duration: 46s; }
+.ambient-cloud--3 { top: 24%; width: 210px; left: -210px; animation-delay: -26s; animation-duration: 42s; }
+
+@keyframes cloudDrift {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(calc(100vw + 340px)); }
+}
+
+.ambient-water-glint {
+  position: absolute;
+  width: 24px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.9);
+  animation: waterGlint 3.2s ease-in-out infinite;
+}
+
+@keyframes waterGlint {
+  0%, 100% { opacity: 0.1; transform: scaleX(0.5); }
+  50% { opacity: 0.92; transform: scaleX(1.25); }
+}
+
+.ambient-sunbeam {
+  position: absolute;
+  top: -20%;
+  left: 12%;
+  width: 48%;
+  height: 110%;
+  background: linear-gradient(118deg, rgba(255, 252, 224, 0.22) 0%, rgba(255, 252, 224, 0.04) 55%, rgba(255, 255, 255, 0) 80%);
+  transform: skewX(-18deg);
+  animation: beamSway 9s ease-in-out infinite alternate;
+}
+
+@keyframes beamSway {
+  0% { opacity: 0.55; transform: skewX(-18deg) translateX(-16px); }
+  100% { opacity: 0.95; transform: skewX(-14deg) translateX(22px); }
+}
+
+.ambient-spotlight {
+  position: absolute;
+  top: -15%;
+  width: 28%;
+  height: 120%;
+  background: linear-gradient(180deg, rgba(254, 249, 195, 0.25) 0%, rgba(254, 249, 195, 0) 75%);
+  animation: beamSway 7s ease-in-out infinite alternate;
+}
+
+.ambient-spotlight--left { left: 10%; transform: rotate(12deg); }
+.ambient-spotlight--right { right: 10%; transform: rotate(-12deg); animation-delay: -3.5s; }
+
+.ambient-pollen,
+.ambient-dust,
+.ambient-heal-mote {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffffff 0%, #fef08a 70%, rgba(254, 240, 138, 0) 100%);
+  box-shadow: 0 0 10px rgba(254, 240, 138, 0.85);
+  animation: floatMote 6.2s ease-in-out infinite;
+}
+
+.ambient-heal-mote {
+  width: 11px;
+  height: 11px;
+  bottom: 8%;
+  background: radial-gradient(circle, #ffffff 0%, #fbcfe8 60%, #f472b6 100%);
+  box-shadow: 0 0 12px rgba(244, 114, 182, 0.75);
+  animation: riseBubble 5.4s linear infinite;
+}
+
+@keyframes floatMote {
+  0% { transform: translate(0, 0) scale(0.8); opacity: 0.25; }
+  50% { transform: translate(26px, -24px) scale(1.2); opacity: 0.95; }
+  100% { transform: translate(52px, -8px) scale(0.8); opacity: 0.2; }
+}
+
+.ambient-leaf,
+.ambient-petal {
+  position: absolute;
+  top: -18px;
+  width: 14px;
+  height: 9px;
+  border-radius: 90% 10% 90% 10%;
+  background: linear-gradient(135deg, #4ade80, #16a34a);
+  box-shadow: 0 2px 6px rgba(15, 35, 25, 0.2);
+  animation: driftDown 7s linear infinite;
+}
+
+.ambient-petal {
+  width: 13px;
+  height: 10px;
+  border-radius: 70% 30% 70% 30%;
+  background: linear-gradient(135deg, #fbcfe8, #f472b6);
+}
+
+@keyframes driftDown {
+  0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+  12% { opacity: 0.9; }
+  88% { opacity: 0.85; }
+  100% { transform: translate(70px, 68vh) rotate(290deg); opacity: 0; }
+}
+
+.ambient-bubble {
+  position: absolute;
+  bottom: -24px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.9), rgba(56, 189, 248, 0.45) 65%, rgba(2, 132, 199, 0.2));
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  animation: riseBubble 6s linear infinite;
+}
+
+@keyframes riseBubble {
+  0% { transform: translate(0, 0) scale(0.75); opacity: 0; }
+  15% { opacity: 0.85; }
+  85% { opacity: 0.75; }
+  100% { transform: translate(18px, -74vh) scale(1.15); opacity: 0; }
+}
+
+.ambient-confetti {
+  position: absolute;
+  top: -14px;
+  width: 10px;
+  height: 6px;
+  border-radius: 2px;
+  animation: driftDown 5.5s linear infinite;
+}
+
+/* Front Poké Ball Capture Lock-In Light Aura (Beat 5 after 3rd wiggle!) */
+.capture-front-light-aura {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(167, 243, 208, 0.95) 0%, rgba(52, 211, 153, 0.52) 45%, rgba(52, 211, 153, 0) 72%);
+  z-index: 4;
+  animation: captureLightPulse 0.65s ease-out forwards;
+}
+
+@keyframes captureLightPulse {
+  0% { transform: translate(-50%, -50%) scale(0.35); opacity: 0.95; }
+  55% { transform: translate(-50%, -50%) scale(1.22); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1.02); opacity: 0.85; }
+}
+
+/* Live Animated Status Effects Directly on Sick Clinic Pokémon */
+.status-fx {
+  position: absolute;
+  inset: -12px;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.scene-target-visual--brn { filter: drop-shadow(0 0 14px rgba(249, 115, 22, 0.65)); }
+.scene-target-visual--frz { filter: drop-shadow(0 0 14px rgba(56, 189, 248, 0.7)); }
+.scene-target-visual--par { animation: parShiver 0.36s ease-in-out infinite; }
+.scene-target-visual--psn { filter: drop-shadow(0 0 14px rgba(168, 85, 247, 0.7)); }
+.scene-target-visual--slp { animation: slpSway 2.4s ease-in-out infinite; }
+
+@keyframes parShiver {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+
+@keyframes slpSway {
+  0%, 100% { transform: rotate(-3deg) translateY(0); }
+  50% { transform: rotate(3deg) translateY(4px); }
+}
+
+.fx-flame {
+  position: absolute;
+  width: 24px;
+  height: 30px;
+  border-radius: 50% 50% 50% 10%;
+  transform: rotate(-45deg);
+  background: radial-gradient(circle at 35% 65%, #fef08a 0%, #f97316 58%, #dc2626 100%);
+  box-shadow: 0 0 14px rgba(249, 115, 22, 0.85);
+  animation: flameFlicker 0.65s ease-in-out infinite alternate;
+}
+
+.fx-flame--1 { bottom: 18px; left: 8px; }
+.fx-flame--2 { top: 20px; right: 6px; width: 20px; height: 26px; animation-delay: -0.25s; }
+.fx-flame--3 { bottom: 38px; right: 16px; width: 18px; height: 24px; animation-delay: -0.45s; }
+
+@keyframes flameFlicker {
+  0% { transform: rotate(-45deg) scale(0.9) translateY(2px); opacity: 0.82; }
+  100% { transform: rotate(-42deg) scale(1.16) translateY(-6px); opacity: 1; }
+}
+
+.fx-ice-crystal {
+  position: absolute;
+  inset: 14px 10px 6px;
+  border-radius: 18px 26px 14px 20px;
+  background: linear-gradient(135deg, rgba(224, 242, 254, 0.56) 0%, rgba(56, 189, 248, 0.32) 55%, rgba(14, 165, 233, 0.45) 100%);
+  border: 2.5px solid rgba(255, 255, 255, 0.85);
+  box-shadow: inset 0 0 18px rgba(255, 255, 255, 0.7), 0 6px 18px rgba(14, 165, 233, 0.4);
+}
+
+.fx-snow {
+  position: absolute;
+  font-size: 1.25rem;
+  color: #e0f2fe;
+  text-shadow: 0 0 8px #0284c7;
+  animation: floatMote 2.6s ease-in-out infinite;
+}
+.fx-snow--1 { top: 4px; left: 10px; }
+.fx-snow--2 { top: 14px; right: 6px; animation-delay: -0.9s; }
+.fx-snow--3 { bottom: 18px; left: 16px; animation-delay: -1.6s; }
+
+.fx-bolt {
+  position: absolute;
+  filter: drop-shadow(0 0 8px rgba(250, 204, 21, 0.95));
+  animation: boltZap 0.55s ease-in-out infinite;
+}
+.fx-bolt--1 { top: 4px; left: 8px; }
+.fx-bolt--2 { top: 18px; right: 2px; animation-delay: -0.2s; }
+.fx-bolt--3 { bottom: 16px; left: 14px; animation-delay: -0.35s; }
+
+@keyframes boltZap {
+  0%, 100% { opacity: 0.3; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1.18); }
+}
+
+.fx-poison-bubble {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #f3e8ff 0%, #a855f7 62%, #6b21a8 100%);
+  border: 1.5px solid rgba(255, 255, 255, 0.75);
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.8);
+  animation: poisonRise 2s ease-in-out infinite;
+}
+.fx-poison-bubble--1 { width: 22px; height: 22px; bottom: 20px; left: 10px; }
+.fx-poison-bubble--2 { width: 16px; height: 16px; bottom: 44px; right: 12px; animation-delay: -0.6s; }
+.fx-poison-bubble--3 { width: 20px; height: 20px; top: 14px; right: 20px; animation-delay: -1.2s; }
+.fx-poison-bubble--4 { width: 14px; height: 14px; top: 26px; left: 22px; animation-delay: -1.6s; }
+
+@keyframes poisonRise {
+  0% { transform: translateY(10px) scale(0.75); opacity: 0.25; }
+  50% { transform: translateY(-10px) scale(1.15); opacity: 1; }
+  100% { transform: translateY(-22px) scale(0.85); opacity: 0.2; }
+}
+
+.fx-zzz {
+  position: absolute;
+  font-family: var(--font-display);
+  font-weight: 800;
+  color: #38bdf8;
+  text-shadow: 0 2px 6px rgba(15, 35, 65, 0.45), 0 0 10px #ffffff;
+  animation: zzzFloat 2.2s ease-in-out infinite;
+}
+.fx-zzz--1 { font-size: 1.7rem; top: -4px; right: 10px; }
+.fx-zzz--2 { font-size: 1.35rem; top: 18px; right: 26px; animation-delay: -0.65s; }
+.fx-zzz--3 { font-size: 1.05rem; top: 38px; right: 38px; animation-delay: -1.2s; }
+
+@keyframes zzzFloat {
+  0% { transform: translate(0, 8px) scale(0.8); opacity: 0.25; }
+  50% { transform: translate(6px, -8px) scale(1.15); opacity: 1; }
+  100% { transform: translate(12px, -20px) scale(0.9); opacity: 0; }
+}
+
+.fx-bandage {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 38px;
+  height: 16px;
+  border-radius: 8px;
+  background: #fde68a;
+  border: 2px solid #d97706;
+  transform: rotate(-22deg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 8px rgba(15, 35, 65, 0.25);
+}
+
+.fx-bandage__pad {
+  width: 12px;
+  height: 10px;
+  border-radius: 3px;
+  background: #fffbeb;
+  border: 1px solid #f59e0b;
+}
+
+/* Tappable Pokémon Nameplates */
+.actor-nameplate--btn {
+  cursor: pointer;
+  transition: transform 0.14s ease, box-shadow 0.14s ease;
+}
+
+.actor-nameplate--btn:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 6px 18px rgba(15, 35, 65, 0.28);
+}
+
+/* Compact Elkonin Boxes for 6-9 Letter Curatives + Digraph Team Brackets */
+.elkonin-row--compact {
+  gap: 6px;
+}
+
+.elkonin-box--sm {
+  min-width: 52px;
+  height: 58px;
+  padding: 0 8px;
+  font-size: 1.55rem;
+}
+
+.elkonin-box--team {
+  border-bottom: 4px solid #38bdf8;
+}
+
+.elkonin-box--team-right {
+  border-top-right-radius: 8px;
+  border-bottom-right-radius: 8px;
+}
+
+.elkonin-box--team-left {
+  border-top-left-radius: 8px;
+  border-bottom-left-radius: 8px;
+}
+
+/* Oak's A–Z Safari Compact Progress Ribbon */
+.az-ribbon {
+  position: relative;
+  z-index: 5;
+  max-width: 980px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 14px rgba(15, 35, 65, 0.14);
+}
+
+.az-ribbon__chip {
+  width: 31px;
+  height: 31px;
+  border-radius: 9px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.88rem;
+  color: var(--ink-secondary);
+  background: #f1f5f9;
+  border: 1.5px solid #cbd5e1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.12s ease;
+}
+
+.az-ribbon__chip:hover {
+  transform: scale(1.1);
+}
+
+.az-ribbon__chip--done {
+  background: linear-gradient(180deg, #fef08a 0%, #facc15 100%);
+  border-color: #d97706;
+  color: #78350f;
+}
+
+.az-ribbon__chip--active {
+  background: linear-gradient(180deg, #38bdf8 0%, #0284c7 100%);
+  border-color: #0369a1;
+  color: #ffffff;
+  transform: scale(1.14);
+}
+
+/* My Captured Pokémon Pokédex Cards & Silhouettes */
+.hud-pokedex-btn {
+  border-color: rgba(230, 69, 69, 0.35);
+}
+
+.pokemon-book-card {
+  position: relative;
+}
+
+.pokemon-book-card--caught {
+  background: linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%);
+  border-color: #86efac;
+  transition: transform 0.14s ease, border-color 0.14s ease;
+}
+
+.pokemon-book-card--caught:hover {
+  transform: translateY(-2px);
+  border-color: var(--switch-cyan);
+}
+
+.pokemon-book-card--silhouette {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  opacity: 0.72;
+}
+
+.pokedex-silhouette-wrap img {
+  filter: brightness(0) opacity(0.28);
+}
+
+.pokedex-card__num {
+  position: absolute;
+  top: 7px;
+  left: 8px;
+  font-size: 0.7rem;
+  font-weight: 900;
+  color: var(--ink-muted);
+}
+
+.pokedex-card__count {
+  position: absolute;
+  top: 6px;
+  right: 26px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+.pokedex-card__ball {
+  position: absolute;
+  top: 6px;
+  right: 7px;
+}
+
+.pokedex-card__name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.pokedex-card__town {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--ink-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scene-viewport::before,
+  .ambient-cloud,
+  .ambient-water-glint,
+  .ambient-sunbeam,
+  .ambient-spotlight,
+  .ambient-pollen,
+  .ambient-dust,
+  .ambient-heal-mote,
+  .ambient-leaf,
+  .ambient-petal,
+  .ambient-bubble,
+  .ambient-confetti {
+    animation: none !important;
+  }
+}
+
 /* Responsive Tablet & Mobile */
 @media (max-width: 860px) {
   .overworld-stage {

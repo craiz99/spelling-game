@@ -80,6 +80,8 @@ export interface WordEntry {
   itemSlug?: string;
   /** Optional painted Word Picture Card slug in public/assets/words/ */
   pictureSlug?: string;
+  /** Optional status condition shown visually on sick Pokémon in Zone 4 Clinic */
+  statusCondition?: StatusCondition;
   /** Real-world everyday sentence anchoring meaning outside Pokémon */
   everydaySentence: string;
   /** Short Pokémon Let's Go bridge note */
@@ -109,12 +111,14 @@ export type ScaffoldMode = 'auto' | 'extra-help' | 'builder' | 'explorer';
 export type LetterAudioMode = 'phonics' | 'names-and-sounds';
 export type VoiceSpeed = 'slow' | 'normal';
 export type BlendingStyle = 'successive' | 'continuous';
+export type TileMode = 'single-letters' | 'digraph-teams';
 
 export interface ParentSettings {
   scaffoldMode: ScaffoldMode;
   letterAudioMode: LetterAudioMode;
   voiceSpeed: VoiceSpeed;
   blendingStyle: BlendingStyle;
+  tileMode: TileMode;
   voiceEnabled: boolean;
   chimesEnabled: boolean;
   unlockAllZones: boolean;
@@ -247,6 +251,12 @@ export interface WordMasteryRecord {
 
 export type EquippedAccessories = Record<AccessorySlot, AccessoryId | null>;
 
+export interface CaughtPokemonDetail {
+  count: number;
+  firstCaughtAt: number;
+  lastTown: string;
+}
+
 export interface PlayerProgress {
   version: number;
   totalStars: number;
@@ -259,6 +269,7 @@ export interface PlayerProgress {
   completedChains: string[];
   masteredLetters: string[];
   caughtPokemonIds: number[];
+  caughtPokemonDetails: Record<number, CaughtPokemonDetail>;
   earnedBadges: BadgeId[];
   equippedAccessories: EquippedAccessories;
   selectedMoveId: PartnerMoveId;

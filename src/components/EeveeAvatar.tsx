@@ -10,8 +10,11 @@ interface EeveeAvatarProps {
 }
 
 /**
- * Renders official PokéAPI Eevee (#133) artwork with refined, soft-shaded
- * Dress-Up Closet accessory overlays accurately calibrated to Eevee's official artwork pose.
+ * Renders official PokéAPI Eevee (#133) artwork with precision-calibrated
+ * Dress-Up Closet accessory overlays measured directly against the 475x475 sprite grid:
+ * - Crown midpoint between ears: (44, 37) tilted +11deg
+ * - Eyes: left (32.5, 54.5), right (52.5, 58.5), bridge (42.5, 56.5) tilted +11deg
+ * - Neck fluff collar: center (39, 73.5) tilted +10deg
  */
 export const EeveeAvatar: React.FC<EeveeAvatarProps> = ({
   size = 112,
@@ -35,44 +38,54 @@ export const EeveeAvatar: React.FC<EeveeAvatarProps> = ({
           fill="none"
           aria-hidden="true"
         >
-          {/* Head Slot Accessories (calibrated to official Eevee #133 crown area) */}
+          {/* Head Slot Accessories — centered on (44, 36.5) with +11deg head tilt */}
           {equipped.head === 'trainer-cap' && (
-            <g style={{ filter: 'drop-shadow(0 2px 3px rgba(15,35,65,0.22))' }}>
-              <path d="M36 39 C38 22 68 20 74 37 Z" fill="#E64545" />
-              <path d="M44 37 C46 27 62 26 65 36 Z" fill="#FFFFFF" />
-              <path d="M51 32 A4 4 0 0 1 59 32" stroke="#E64545" strokeWidth="2.2" fill="none" />
-              <path d="M31 39 Q53 33 78 39 L75 43 Q53 38 32 42 Z" fill="#C62828" />
+            <g
+              transform="translate(44, 36.5) rotate(11)"
+              style={{ filter: 'drop-shadow(0 2px 3px rgba(15,35,65,0.26))' }}
+            >
+              <path d="M-15 2 C-13 -13 13 -13 15 2 Z" fill="#E64545" stroke="#991B1B" strokeWidth="1" />
+              <path d="M-8 1 C-6 -7 6 -7 8 1 Z" fill="#FFFFFF" />
+              <path d="M-4 -2.5 A4 4 0 0 1 4 -2.5" stroke="#E64545" strokeWidth="2.1" fill="none" />
+              <circle cx="0" cy="-10.5" r="2.1" fill="#C62828" />
+              <path d="M-19 2 Q-2 -3.5 17 2.5 L15 6 Q-2 1 -18 5.5 Z" fill="#B91C1C" />
             </g>
           )}
 
           {equipped.head === 'flower-crown' && (
-            <g style={{ filter: 'drop-shadow(0 2px 3px rgba(15,35,65,0.18))' }}>
-              <path d="M36 37 Q54 29 73 36" stroke="#43A047" strokeWidth="3" strokeLinecap="round" />
-              <circle cx="40" cy="36" r="4.8" fill="#F472B6" />
-              <circle cx="40" cy="36" r="1.7" fill="#FFFBEB" />
-              <circle cx="50" cy="32.5" r="5.2" fill="#FBBF24" />
-              <circle cx="50" cy="32.5" r="1.8" fill="#FFFFFF" />
-              <circle cx="60" cy="32.5" r="5.2" fill="#60A5FA" />
-              <circle cx="60" cy="32.5" r="1.8" fill="#FFFFFF" />
-              <circle cx="69" cy="36" r="4.6" fill="#4ADE80" />
-              <circle cx="69" cy="36" r="1.6" fill="#FFFFFF" />
+            <g
+              transform="translate(44, 37) rotate(11)"
+              style={{ filter: 'drop-shadow(0 2px 3px rgba(15,35,65,0.2))' }}
+            >
+              <path d="M-15 2 Q0 -5 15 2" stroke="#2E9E5B" strokeWidth="3.2" strokeLinecap="round" />
+              <circle cx="-12" cy="1" r="4.4" fill="#F472B6" />
+              <circle cx="-12" cy="1" r="1.6" fill="#FFFBEB" />
+              <circle cx="-4" cy="-2" r="4.9" fill="#FBBF24" />
+              <circle cx="-4" cy="-2" r="1.7" fill="#FFFFFF" />
+              <circle cx="5" cy="-2" r="4.9" fill="#60A5FA" />
+              <circle cx="5" cy="-2" r="1.7" fill="#FFFFFF" />
+              <circle cx="13" cy="1" r="4.2" fill="#4ADE80" />
+              <circle cx="13" cy="1" r="1.5" fill="#FFFFFF" />
             </g>
           )}
 
           {equipped.head === 'champion-crown' && (
-            <g style={{ filter: 'drop-shadow(0 2px 4px rgba(180,120,0,0.35))' }}>
+            <g
+              transform="translate(44, 35) rotate(11)"
+              style={{ filter: 'drop-shadow(0 2px 4px rgba(180,120,0,0.38))' }}
+            >
               <path
-                d="M39 36 L41 21 L49 28 L55 18 L61 28 L69 21 L71 36 Z"
+                d="M-13 2 L-11 -11 L-4 -4.5 L0 -14 L4 -4.5 L11 -11 L13 2 Z"
                 fill="url(#champCrownGrad)"
                 stroke="#B45309"
                 strokeWidth="1.2"
                 strokeLinejoin="round"
               />
-              <circle cx="55" cy="30" r="2.6" fill="#EF4444" />
-              <circle cx="45" cy="31" r="2" fill="#38BDF8" />
-              <circle cx="65" cy="31" r="2" fill="#38BDF8" />
+              <circle cx="0" cy="-3" r="2.4" fill="#EF4444" />
+              <circle cx="-7.5" cy="-2.2" r="1.9" fill="#38BDF8" />
+              <circle cx="7.5" cy="-2.2" r="1.9" fill="#38BDF8" />
               <defs>
-                <linearGradient id="champCrownGrad" x1="39" y1="18" x2="71" y2="36" gradientUnits="userSpaceOnUse">
+                <linearGradient id="champCrownGrad" x1="-13" y1="-14" x2="13" y2="2" gradientUnits="userSpaceOnUse">
                   <stop offset="0%" stopColor="#FEF08A" />
                   <stop offset="100%" stopColor="#F59E0B" />
                 </linearGradient>
@@ -80,42 +93,53 @@ export const EeveeAvatar: React.FC<EeveeAvatarProps> = ({
             </g>
           )}
 
-          {/* Eyes Slot — Star Shades */}
+          {/* Eyes Slot — Star Shades centered directly on left eye (32.5,54.5) & right eye (52.5,58.5) */}
           {equipped.eyes === 'star-shades' && (
-            <g style={{ filter: 'drop-shadow(0 2px 3px rgba(15,35,65,0.28))' }}>
+            <g
+              transform="translate(42.5, 56.5) rotate(11)"
+              style={{ filter: 'drop-shadow(0 2px 3px rgba(15,35,65,0.3))' }}
+            >
               <polygon
-                points="44,41 46.2,46 51.5,46.4 47.4,50 48.6,55.2 44,52.4 39.4,55.2 40.6,50 36.5,46.4 41.8,46"
+                points="-10,-7.5 -7.8,-2.5 -2.5,-2 -6.6,1.6 -5.4,6.8 -10,4 -14.6,6.8 -13.4,1.6 -17.5,-2 -12.2,-2.5"
                 fill="#1E3A8A"
                 stroke="#F5B82E"
                 strokeWidth="1.7"
               />
               <polygon
-                points="62,41 64.2,46 69.5,46.4 65.4,50 66.6,55.2 62,52.4 57.4,55.2 58.6,50 54.5,46.4 59.8,46"
+                points="10,-7.5 12.2,-2.5 17.5,-2 13.4,1.6 14.6,6.8 10,4 5.4,6.8 6.6,1.6 2.5,-2 7.8,-2.5"
                 fill="#1E3A8A"
                 stroke="#F5B82E"
                 strokeWidth="1.7"
               />
-              <line x1="50" y1="47.5" x2="56" y2="47.5" stroke="#F5B82E" strokeWidth="2.2" />
+              <line x1="-3.5" y1="-1.2" x2="3.5" y2="-1.2" stroke="#F5B82E" strokeWidth="2.3" />
             </g>
           )}
 
-          {/* Neck Slot Accessories */}
+          {/* Neck Slot Accessories — centered on Eevee's fluffy chest collar (39, 73.5) with +10deg tilt */}
           {equipped.neck === 'sunny-bow-tie' && (
-            <g style={{ filter: 'drop-shadow(0 2px 3px rgba(15,35,65,0.2))' }}>
-              <polygon points="56,74 44,68 44,80" fill="#FBBF24" />
-              <polygon points="56,74 68,68 68,80" fill="#FBBF24" />
-              <circle cx="56" cy="74" r="3.6" fill="#D97706" />
+            <g
+              transform="translate(39, 73.5) rotate(10)"
+              style={{ filter: 'drop-shadow(0 2px 3px rgba(15,35,65,0.24))' }}
+            >
+              <polygon points="0,0 -11,-6 -11,6" fill="#FBBF24" stroke="#B45309" strokeWidth="1" />
+              <polygon points="0,0 11,-6 11,6" fill="#FBBF24" stroke="#B45309" strokeWidth="1" />
+              <circle cx="0" cy="0" r="3.4" fill="#D97706" />
             </g>
           )}
 
           {equipped.neck === 'berry-scarf' && (
-            <g style={{ filter: 'drop-shadow(0 2px 3px rgba(15,35,65,0.22))' }}>
+            <g
+              transform="translate(39, 71) rotate(10)"
+              style={{ filter: 'drop-shadow(0 2px 3px rgba(15,35,65,0.24))' }}
+            >
               <path
-                d="M38 69 Q56 79 74 69 Q72 78 56 82 Q40 78 38 69 Z"
+                d="M-17 -3 Q0 7 18 -3 Q16 5.5 0 9.5 Q-15 5.5 -17 -3 Z"
                 fill="#E11D48"
+                stroke="#9F1239"
+                strokeWidth="0.9"
               />
-              <path d="M58 76 L67 90 L57 88 Z" fill="#BE123C" />
-              <circle cx="55" cy="76" r="2.2" fill="#FDA4AF" />
+              <path d="M2 5 L11 19 L1 17 Z" fill="#BE123C" />
+              <circle cx="-1" cy="4.2" r="2.2" fill="#FDA4AF" />
             </g>
           )}
         </svg>

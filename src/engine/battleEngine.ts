@@ -23,6 +23,7 @@ export type BattlePhase =
 
 export interface ClinicPatientInfo {
   status: StatusCondition;
+  statusLabel: string;
   prompt: string;
   targetCurative: MenuCardItem;
   choices: MenuCardItem[];
@@ -55,13 +56,24 @@ export interface BattleState {
   clinicPatient: ClinicPatientInfo | null;
 }
 
-export const BATTLE_LENGTH = 3;
+/** 5 encounters per town stage (~50%+ longer gameplay for richer practice!) */
+export const BATTLE_LENGTH = 5;
 
 const MEDICINE_ITEMS = MENU_CARDS.filter((c) => c.deckId === 'medicine');
 
+const STATUS_DESCRIPTIONS: Record<StatusCondition, { label: string; symptom: string }> = {
+  BRN: { label: 'Burned', symptom: 'has a hot burn' },
+  FRZ: { label: 'Frozen', symptom: 'is frozen in chilly ice' },
+  PAR: { label: 'Paralyzed', symptom: 'has electric static tingles' },
+  PSN: { label: 'Poisoned', symptom: 'has purple poison bubbles' },
+  SLP: { label: 'Asleep', symptom: 'fell fast asleep' },
+  HP: { label: 'Tired', symptom: 'needs energy and healing' },
+  ITEM: { label: 'Care', symptom: 'needs a helpful curative' },
+};
+
 /**
- * Creates a friendly Nurse Joy Clinic diagnosis & 3-bottle curative tray
- * paired directly with the current Zone 4 word!
+ * Creates a visual Nurse Joy Clinic diagnosis & 3-bottle curative tray
+ * paired directly with the current Zone 4 curative word & status condition!
  */
 export function createClinicPatientForWord(
   word: WordEntry,
@@ -70,10 +82,13 @@ export function createClinicPatientForWord(
   const byDisplay = MEDICINE_ITEMS.find(
     (m) => m.label.toUpperCase() === word.displayWord.toUpperCase(),
   );
-  const targetCurative =
-    byDisplay ??
-    MEDICINE_ITEMS.find((m) => m.itemSlug === word.itemSlug) ??
-    MEDICINE_ITEMS[0]!;
+  const bySlug = word.itemSlug
+    ? MEDICINE_ITEMS.find((m) => m.itemSlug === word.itemSlug)
+    : undefined;
+  const byStatus = word.statusCondition
+    ? MEDICINE_ITEMS.find((m) => m.statusTag === word.statusCondition)
+    : undefined;
+  const targetCurative = byDisplay ?? bySlug ?? byStatus ?? MEDICINE_ITEMS[0]!;
 
   const distractors = MEDICINE_ITEMS.filter((m) => m.id !== targetCurative.id)
     .sort(() => rng() - 0.5)
@@ -83,11 +98,13 @@ export function createClinicPatientForWord(
     a.label.localeCompare(b.label),
   );
 
-  const status: StatusCondition = targetCurative.statusTag ?? 'HP';
-  const prompt = `${word.pokemonName} needs help! Pick ${targetCurative.label} from the Medicine Pocket!`;
+  const status: StatusCondition = word.statusCondition ?? targetCurative.statusTag ?? 'HP';
+  const desc = STATUS_DESCRIPTIONS[status];
+  const prompt = `${word.pokemonName} ${desc.symptom}! Pick ${targetCurative.label} to help!`;
 
   return {
     status,
+    statusLabel: desc.label,
     prompt,
     targetCurative,
     choices,
@@ -95,29 +112,84 @@ export function createClinicPatientForWord(
 }
 
 /**
- * Selects 3 words from the chosen zone, prioritizing new and learning words
- * before mastered review words, keeping Zone 1 continuant-first order gentle.
+ * Selects 5 words from the chosen zone:
+ * - Prioritizes unmastered words before mastered review words
+ * - Guarantees ZERO duplicate Pokémon species in the same stage
+ * - Prioritizes Pokémon species the player hasn't caught yet!
  */
 export function selectBattleWords(
   zoneId: ZoneId,
   wordMastery: Record<string, WordMasteryRecord>,
   count: number = BATTLE_LENGTH,
   rng: () => number = Math.random,
+  caughtPokemonIds: readonly number[] = [],
 ): WordEntry[] {
   const pool = getWordsByZone(zoneId);
   if (pool.length <= count) return [...pool];
 
+  const caughtSet = new Set(caughtPokemonIds);
   const unmastered = pool.filter((w) => {
     const rec = wordMastery[w.id];
     return !rec || rec.status !== 'mastered';
   });
   const mastered = pool.filter((w) => wordMastery[w.id]?.status === 'mastered');
 
-  const orderedUnmastered =
-    zoneId === 1 ? unmastered : [...unmastered].sort(() => rng() - 0.5);
-  const shuffledMastered = [...mastered].sort(() => rng() - 0.5);
+  // Shuffle within mastery tiers, bubbling uncaught Pokémon to the front for exciting variety!
+  const prioritizeVariety = (items: WordEntry[]): WordEntry[] => {
+    const shuffled = [...items].sort(() => rng() - 0.5);
+    const uncaught = shuffled.filter((w) => !caughtSet.has(w.pokemonId));
+    const alreadyCaught = shuffled.filter((w) => caughtSet.has(w.pokemonId));
+    return [...uncaught, ...alreadyCaught];
+  };
 
-  return [...orderedUnmastered, ...shuffledMastered].slice(0, count);
+  const CORE_CURATIVE_IDS = new Set([
+    'z4-potion',
+    'z4-burn-heal',
+    'z4-ice-heal',
+    'z4-antidote',
+    'z4-awakening',
+    'z4-paralyze-heal',
+    'z4-full-heal',
+    'z4-revive',
+  ]);
+
+  // In Zone 1, keep 2-sound easy words near the front; in Zone 4, lead with real named curatives!
+  const orderedUnmastered =
+    zoneId === 1
+      ? [
+          ...prioritizeVariety(unmastered.filter((w) => w.units.length === 2)),
+          ...prioritizeVariety(unmastered.filter((w) => w.units.length > 2)),
+        ]
+      : zoneId === 4
+        ? [
+            ...prioritizeVariety(unmastered.filter((w) => CORE_CURATIVE_IDS.has(w.id))),
+            ...prioritizeVariety(unmastered.filter((w) => !CORE_CURATIVE_IDS.has(w.id))),
+          ]
+        : prioritizeVariety(unmastered);
+  const orderedMastered = prioritizeVariety(mastered);
+
+  const candidates = [...orderedUnmastered, ...orderedMastered];
+  const picked: WordEntry[] = [];
+  const usedPokemonIds = new Set<number>();
+
+  // Pass 1: strictly distinct Pokémon species
+  for (const word of candidates) {
+    if (picked.length >= count) break;
+    if (!usedPokemonIds.has(word.pokemonId)) {
+      picked.push(word);
+      usedPokemonIds.add(word.pokemonId);
+    }
+  }
+
+  // Pass 2 fallback if a zone ever has fewer distinct species than count
+  for (const word of candidates) {
+    if (picked.length >= count) break;
+    if (!picked.includes(word)) {
+      picked.push(word);
+    }
+  }
+
+  return picked;
 }
 
 export function resolvePartnerMove(moveId: PartnerMoveId): PartnerMoveDef {
@@ -130,10 +202,10 @@ export function createBattleState(
   selectedMoveId: PartnerMoveId,
   rng: () => number = Math.random,
   overrideMode?: TownChallengeMode,
+  caughtPokemonIds: readonly number[] = [],
 ): BattleState {
   const challengeMode = overrideMode ?? getTownChallengeMode(zoneId);
-  const wordCount = overrideMode === 'wild-catch' && zoneId === 1 ? BATTLE_LENGTH : BATTLE_LENGTH;
-  const words = selectBattleWords(zoneId, wordMastery, wordCount, rng);
+  const words = selectBattleWords(zoneId, wordMastery, BATTLE_LENGTH, rng, caughtPokemonIds);
   const firstWord = words[0]!;
   const isClinic = challengeMode === 'clinic-heal';
 
@@ -161,10 +233,6 @@ export function getCurrentBattleWord(state: BattleState): WordEntry | null {
   return state.words[state.currentWordIndex] ?? null;
 }
 
-/**
- * Transitions Zone 4 Nurse Joy Clinic from picking the right curative bottle
- * into spelling its focus word to activate the cure!
- */
 export function completeClinicMedicinePick(state: BattleState): BattleState {
   if (state.phase !== 'clinic-pick') return state;
   return {
@@ -183,9 +251,6 @@ export function setBattleActiveMove(
   };
 }
 
-/**
- * Transitions from spelling Elkonin boxes into Paw-Slide Blending.
- */
 export function completeBattleWordSpelling(
   state: BattleState,
   meta: { usedHelp: boolean; wrongAttempts: number },
@@ -214,10 +279,6 @@ export function completeBattleWordSpelling(
   };
 }
 
-/**
- * Transitions from Paw-Slide Blending to the interactive Town Payoff Action
- * (Throw Poké Ball / Toss Berry & Ball / Pack Mart Item / Heal Patient / Launch Elemental Move!)
- */
 export function completeBattleWordBlending(state: BattleState): BattleState {
   if (state.phase !== 'blending') return state;
   return {
@@ -227,10 +288,6 @@ export function completeBattleWordBlending(state: BattleState): BattleState {
   };
 }
 
-/**
- * Fires when the player taps the interactive Payoff button (Throw Poké Ball! / Launch Move! / Heal!),
- * starting the animated VFX sequence and awarding Star Hearts!
- */
 export function triggerBattlePayoffAction(state: BattleState): BattleState {
   if (state.phase !== 'action-ready' && state.phase !== 'blending') return state;
   const word = getCurrentBattleWord(state);
@@ -257,9 +314,6 @@ export function triggerBattlePayoffAction(state: BattleState): BattleState {
   };
 }
 
-/**
- * Advances to the next encounter word (or enters Victory Celebration!).
- */
 export function finishBattleMoveAnimation(
   state: BattleState,
   rng: () => number = Math.random,

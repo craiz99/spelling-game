@@ -12,6 +12,8 @@ export interface AudioDiagnostics {
   speechSupported: boolean;
   voiceCount: number;
   activeVoiceName: string;
+  humanVoiceClips: number;
+  humanVoiceReady: boolean;
 }
 
 const PREFERRED_VOICE_PATTERNS: readonly { pattern: RegExp; score: number }[] = [
@@ -37,13 +39,18 @@ function scoreVoice(voice: SpeechSynthesisVoice): number {
   return score;
 }
 
+function getAudioAssetUrl(fileName: string): string {
+  const base = import.meta.env.BASE_URL || '/';
+  const normalizedBase = base.endsWith('/') ? base : `${base}/`;
+  return `${normalizedBase}assets/audio/${fileName}`;
+}
+
 /**
- * Bulletproof multi-browser Web Speech API voice engine.
- * Fixes the 4 classic browser silence bugs:
- * 1. Never cancels synchronously before speaking on a fresh queue (Chrome/Safari drop bug)
- * 2. Debounces 45ms only when canceling an active utterance
- * 3. Retains activeUtterance reference to prevent Chrome garbage collection mid-speech
- * 4. Calls speechSynthesis.resume() to unstick Chrome/macOS paused states & caches async voices
+ * Studio-quality Neural Human Voice Engine with automatic Web Speech fallback.
+ * - Loads public/assets/audio/manifest.json containing pre-rendered en-US-JennyNeural MP3 clips
+ *   for every word, curative, Pokémon name, A–Z letter, phonics sound, and encouragement phrase.
+ * - Plays genuine human neural audio via HTMLAudioElement on Chrome, Safari, iOS, and Android.
+ * - Falls back seamlessly to hardened Web Speech API for any dynamic phrase not in the manifest.
  */
 class SpeechGuidanceEngine {
   private enabled = true;
@@ -51,11 +58,30 @@ class SpeechGuidanceEngine {
   private preferredVoiceUri = '';
   private activeToken = 0;
   private activeUtterance: SpeechSynthesisUtterance | null = null;
+  private activeAudio: HTMLAudioElement | null = null;
   private cachedVoices: SpeechSynthesisVoice[] = [];
   private pendingTimer: number | null = null;
+  private manifest: Record<string, string> = {};
+  private manifestLoaded = false;
 
   constructor() {
     this.initVoices();
+    void this.loadManifest();
+  }
+
+  private async loadManifest(): Promise<void> {
+    if (typeof window === 'undefined' || typeof fetch === 'undefined') return;
+    try {
+      const res = await fetch(getAudioAssetUrl('manifest.json'));
+      if (!res.ok) return;
+      const data = (await res.json()) as Record<string, string>;
+      if (data && typeof data === 'object') {
+        this.manifest = data;
+        this.manifestLoaded = true;
+      }
+    } catch {
+      // ignore in jsdom/offline tests; Web Speech fallback stays ready
+    }
   }
 
   private initVoices(): void {
@@ -74,7 +100,7 @@ class SpeechGuidanceEngine {
     try {
       window.speechSynthesis.addEventListener?.('voiceschanged', refresh);
     } catch {
-      // ignore in older Safari/jsdom
+      // ignore
     }
   }
 
@@ -101,22 +127,20 @@ class SpeechGuidanceEngine {
     );
   }
 
-  private getVoicesList(): SpeechSynthesisVoice[] {
-    if (!this.isSupported()) return [];
-    try {
-      const live = window.speechSynthesis.getVoices();
-      if (live.length > 0) {
-        this.cachedVoices = live;
-        return live;
-      }
-    } catch {
-      // ignore
-    }
-    return this.cachedVoices;
-  }
-
   public getAvailableVoices(): VoiceOption[] {
-    return this.getVoicesList()
+    if (!this.isSupported()) return [];
+    let raw: SpeechSynthesisVoice[] = [];
+    try {
+      raw = window.speechSynthesis.getVoices();
+    } catch {
+      raw = [];
+    }
+    if (raw.length > 0) {
+      this.cachedVoices = raw;
+    } else if (this.cachedVoices.length > 0) {
+      raw = this.cachedVoices;
+    }
+    return raw
       .filter((v) => /^en/i.test(v.lang))
       .map((v) => ({
         uri: v.voiceURI,
@@ -128,42 +152,64 @@ class SpeechGuidanceEngine {
   }
 
   public getDiagnostics(): AudioDiagnostics {
+    const voices = this.getAvailableVoices();
     const picked = this.pickVoice();
+    const clipCount = Object.keys(this.manifest).length;
     return {
       speechSupported: this.isSupported(),
-      voiceCount: this.getVoicesList().length,
-      activeVoiceName: picked ? picked.name : 'System Default',
+      voiceCount: voices.length,
+      activeVoiceName:
+        this.manifestLoaded && clipCount > 0
+          ? 'Jenny Neural (Human Voice Pack)'
+          : picked?.name ?? (voices[0]?.name || 'Browser Default'),
+      humanVoiceClips: clipCount,
+      humanVoiceReady: this.manifestLoaded && clipCount > 0,
     };
   }
 
   private pickVoice(): SpeechSynthesisVoice | null {
-    const voices = this.getVoicesList();
-    if (voices.length === 0) return null;
+    if (!this.isSupported()) return null;
+    let voices: SpeechSynthesisVoice[] = [];
+    try {
+      voices = window.speechSynthesis.getVoices();
+    } catch {
+      voices = [];
+    }
+    if (voices.length === 0) voices = this.cachedVoices;
+    if (!voices.length) return null;
 
     if (this.preferredVoiceUri) {
-      const exact = voices.find((v) => v.voiceURI === this.preferredVoiceUri);
-      if (exact) return exact;
+      const explicit = voices.find((v) => v.voiceURI === this.preferredVoiceUri);
+      if (explicit) return explicit;
     }
 
     const english = voices.filter((v) => /^en/i.test(v.lang));
-    if (english.length === 0) return voices[0] ?? null;
-
-    return [...english].sort((a, b) => scoreVoice(b) - scoreVoice(a))[0] ?? null;
+    const pool = english.length ? english : voices;
+    return [...pool].sort((a, b) => scoreVoice(b) - scoreVoice(a))[0] ?? null;
   }
 
-  /**
-   * Unlocks Safari/Chrome SpeechSynthesis without poisoning the queue with a
-   * synchronously-canceled dummy utterance.
-   */
   public unlock(): void {
     if (!this.isSupported()) return;
     try {
-      this.getVoicesList();
+      const list = window.speechSynthesis.getVoices();
+      if (list.length > 0) this.cachedVoices = list;
       if (window.speechSynthesis.paused) {
         window.speechSynthesis.resume();
       }
     } catch {
       // ignore
+    }
+  }
+
+  private stopActiveAudio(): void {
+    if (this.activeAudio) {
+      try {
+        this.activeAudio.pause();
+        this.activeAudio.currentTime = 0;
+      } catch {
+        // ignore
+      }
+      this.activeAudio = null;
     }
   }
 
@@ -173,6 +219,7 @@ class SpeechGuidanceEngine {
       window.clearTimeout(this.pendingTimer);
       this.pendingTimer = null;
     }
+    this.stopActiveAudio();
     this.activeUtterance = null;
     if (!this.isSupported()) return;
     try {
@@ -180,6 +227,83 @@ class SpeechGuidanceEngine {
     } catch {
       // ignore
     }
+  }
+
+  /**
+   * Plays a pre-rendered neural human MP3 clip by manifest key (e.g., "word:sun", "pokemon:onix").
+   * Falls back seamlessly to Web Speech API if the clip isn't found or cannot play.
+   */
+  public playClipKey(
+    clipKey: string,
+    fallbackText?: string,
+    options: { interrupt?: boolean; rateOverride?: number } = {},
+  ): Promise<void> {
+    if (!this.enabled) return Promise.resolve();
+
+    const fileName = this.manifest[clipKey];
+    if (!fileName || typeof Audio === 'undefined') {
+      return fallbackText ? this.speak(fallbackText, options) : Promise.resolve();
+    }
+
+    const interrupt = options.interrupt ?? true;
+    const token = interrupt ? ++this.activeToken : this.activeToken;
+
+    if (interrupt) {
+      if (this.pendingTimer !== null) {
+        window.clearTimeout(this.pendingTimer);
+        this.pendingTimer = null;
+      }
+      this.stopActiveAudio();
+      if (this.isSupported()) {
+        try {
+          if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+            window.speechSynthesis.cancel();
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    return new Promise<void>((resolve) => {
+      try {
+        const audio = new Audio(getAudioAssetUrl(fileName));
+        audio.preload = 'auto';
+        audio.playbackRate =
+          options.rateOverride ?? (this.speed === 'slow' ? 0.94 : 1.06);
+        this.activeAudio = audio;
+
+        let settled = false;
+        const finish = (useFallback = false) => {
+          if (settled) return;
+          settled = true;
+          window.clearTimeout(safetyTimer);
+          if (this.activeAudio === audio) {
+            this.activeAudio = null;
+          }
+          if (useFallback && fallbackText && (!interrupt || token === this.activeToken)) {
+            void this.speak(fallbackText, { ...options, interrupt: false }).then(resolve);
+          } else {
+            resolve();
+          }
+        };
+
+        audio.onended = () => finish(false);
+        audio.onerror = () => finish(true);
+        const safetyTimer = window.setTimeout(() => finish(false), 9000);
+
+        const playPromise = audio.play();
+        if (playPromise && typeof playPromise.catch === 'function') {
+          playPromise.catch(() => finish(true));
+        }
+      } catch {
+        if (fallbackText) {
+          void this.speak(fallbackText, options).then(resolve);
+        } else {
+          resolve();
+        }
+      }
+    });
   }
 
   public speak(
@@ -192,6 +316,10 @@ class SpeechGuidanceEngine {
 
     const interrupt = options.interrupt ?? true;
     const token = interrupt ? ++this.activeToken : this.activeToken;
+
+    if (interrupt) {
+      this.stopActiveAudio();
+    }
 
     if (this.pendingTimer !== null && interrupt) {
       window.clearTimeout(this.pendingTimer);
@@ -216,10 +344,9 @@ class SpeechGuidanceEngine {
           utterance.lang = voice?.lang || 'en-US';
           utterance.volume = 1;
           utterance.rate =
-            options.rateOverride ?? (this.speed === 'slow' ? 0.82 : 0.96);
-          utterance.pitch = options.pitch ?? 1.05;
+            options.rateOverride ?? (this.speed === 'slow' ? 0.84 : 0.96);
+          utterance.pitch = options.pitch ?? 1.04;
 
-          // Hold strong ref so Chrome does not garbage-collect utterance mid-speech
           this.activeUtterance = utterance;
 
           let settled = false;
@@ -248,7 +375,6 @@ class SpeechGuidanceEngine {
         const needsCancel = interrupt && (synth.speaking || synth.pending);
         if (needsCancel) {
           synth.cancel();
-          // Critical 45ms breather so Chrome/Safari don't swallow the next speak() call
           this.pendingTimer = window.setTimeout(() => {
             this.pendingTimer = null;
             dispatch();
@@ -262,52 +388,102 @@ class SpeechGuidanceEngine {
     });
   }
 
+  public speakWord(word: string): Promise<void> {
+    const clean = word.trim().toLowerCase();
+    return this.playClipKey(`word:${clean}`, `${clean}!`);
+  }
+
+  public speakPokemon(pokemonName: string): Promise<void> {
+    const clean = pokemonName.trim().toLowerCase();
+    return this.playClipKey(`pokemon:${clean}`, `${pokemonName}!`);
+  }
+
+  public speakCaught(pokemonName: string): Promise<void> {
+    const clean = pokemonName.trim().toLowerCase();
+    return this.playClipKey(
+      `caught:${clean}`,
+      `Gotcha! ${pokemonName} joined your team!`,
+    );
+  }
+
+  public speakLetter(letter: string, safariPrompt = false, fallbackText?: string): Promise<void> {
+    const clean = letter.trim().toLowerCase();
+    const key = safariPrompt ? `safari:${clean}` : `letter:${clean}`;
+    return this.playClipKey(key, fallbackText ?? `${letter.toUpperCase()}!`);
+  }
+
+  public speakUiCue(
+    cueKey:
+      | 'welcome'
+      | 'great_job'
+      | 'first_try'
+      | 'teamwork'
+      | 'throw_ball'
+      | 'heal_now'
+      | 'launch_move'
+      | 'stage_win'
+      | 'try_again'
+      | 'glow_hint'
+      | 'all_better'
+      | 'test_voice',
+    fallbackText: string,
+    interrupt = true,
+  ): Promise<void> {
+    return this.playClipKey(`ui:${cueKey}`, fallbackText, { interrupt });
+  }
+
   public speakPhoneme(
     phonemeKey: string,
     letters: string,
-    audioMode: LetterAudioMode,
+    mode: LetterAudioMode,
     includeKeyword = false,
   ): Promise<void> {
     const info = getPhonemeInfo(phonemeKey);
     const upper = letters.toUpperCase();
     const letterName = LETTER_NAMES[upper];
 
-    let text: string;
-    if (audioMode === 'names-and-sounds' && letterName) {
-      text = includeKeyword
-        ? `${letterName} says ${info.ttsCue}, like ${info.keyword}`
-        : `${letterName} says ${info.ttsCue}`;
-    } else if (includeKeyword) {
-      text = `${info.ttsCue}, like ${info.keyword}`;
-    } else {
-      text = info.ttsCue;
+    // Prefer our studio neural phoneme MP3 clip!
+    if (this.manifest[`phoneme:${phonemeKey}`]) {
+      return this.playClipKey(`phoneme:${phonemeKey}`, info.ttsCue);
     }
 
-    return this.speak(text, {
-      rateOverride: this.speed === 'slow' ? 0.8 : 0.92,
-      pitch: 1.08,
-    });
+    if (mode === 'names-and-sounds' && letterName) {
+      const phrase = includeKeyword
+        ? `${letterName} says ${info.ttsCue}, like ${info.keyword}`
+        : `${letterName}, ${info.ttsCue}`;
+      return this.speak(phrase, { rateOverride: 0.8 });
+    }
+
+    const phrase = includeKeyword
+      ? `${info.ttsCue}, like ${info.keyword}`
+      : info.ttsCue;
+    return this.speak(phrase, { rateOverride: 0.78 });
   }
 
   public speakBlendCue(cueText: string): Promise<void> {
+    const clean = cueText.trim().toLowerCase();
+    if (this.manifest[`word:${clean}`]) {
+      return this.playClipKey(`word:${clean}`, cueText);
+    }
     return this.speak(cueText, {
-      rateOverride: this.speed === 'slow' ? 0.78 : 0.9,
-      pitch: 1.07,
+      rateOverride: this.speed === 'slow' ? 0.76 : 0.88,
+      pitch: 1.06,
     });
   }
 
   public speakWordIntroduction(
     displayWord: string,
     everydaySentence: string,
-    focusWord: string,
+    focusWord?: string,
   ): Promise<void> {
-    const cleanWord = displayWord.toLowerCase();
-    const cleanFocus = focusWord.toLowerCase();
-    const prompt =
-      cleanWord === cleanFocus
-        ? `${cleanWord}! ${everydaySentence}`
-        : `${cleanWord}! ${everydaySentence} Spell ${cleanFocus}!`;
-    return this.speak(prompt);
+    const cleanDisplay = displayWord.trim().toLowerCase();
+    const introKey = `intro:${cleanDisplay}`;
+    const fallback =
+      focusWord && focusWord.toLowerCase() !== cleanDisplay
+        ? `${displayWord.toLowerCase()}. ${everydaySentence} Let's spell ${focusWord.toLowerCase()}!`
+        : `Spell ${displayWord.toLowerCase()}! ${everydaySentence}`;
+
+    return this.playClipKey(introKey, fallback);
   }
 }
 

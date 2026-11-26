@@ -22,10 +22,10 @@ export const WelcomeOverlay: React.FC<WelcomeOverlayProps> = ({
     soundEffects.unlock();
     speechEngine.unlock();
     soundEffects.playVictoryFanfare();
-    // Speak directly inside user gesture with interrupt:false so Safari/Chrome never drop it
-    void speechEngine.speak(
-      'Hi friend! Let us go spell with Eevee! Tap a town on the Kanto map!',
-      { interrupt: false },
+    void speechEngine.speakUiCue(
+      'welcome',
+      "Let's go! Spell with Eevee!",
+      false,
     );
     onStart();
   };

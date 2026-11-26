@@ -3,6 +3,7 @@ import type {
   AccessoryId,
   BadgeId,
   BlendingStyle,
+  CaughtPokemonDetail,
   EquippedAccessories,
   LetterAudioMode,
   MapNodeId,
@@ -11,13 +12,14 @@ import type {
   PartnerMoveId,
   PlayerProgress,
   ScaffoldMode,
+  TileMode,
   VoiceSpeed,
   WordMasteryRecord,
   ZoneId,
 } from '../data/types';
 
 export const STORAGE_KEY = 'lets-go-spell-eevee-v1';
-export const PROGRESS_VERSION = 2;
+export const PROGRESS_VERSION = 3;
 
 export interface StorageLike {
   getItem(key: string): string | null;
@@ -31,6 +33,7 @@ export function createDefaultSettings(): ParentSettings {
     letterAudioMode: 'phonics',
     voiceSpeed: 'slow',
     blendingStyle: 'successive',
+    tileMode: 'single-letters',
     voiceEnabled: true,
     chimesEnabled: true,
     unlockAllZones: false,
@@ -50,8 +53,15 @@ export function createDefaultProgress(): PlayerProgress {
     completedZones: [],
     completedChains: [],
     masteredLetters: [],
-    // Eevee (#133) begins in your Sticker Book as your partner pal!
+    // Eevee (#133) begins in your Pokédex as your partner pal!
     caughtPokemonIds: [133],
+    caughtPokemonDetails: {
+      133: {
+        count: 1,
+        firstCaughtAt: Date.now(),
+        lastTown: 'Pallet Town',
+      },
+    },
     earnedBadges: [],
     equippedAccessories: {
       head: null,
@@ -76,6 +86,7 @@ const VALID_SCAFFOLDS = new Set<ScaffoldMode>(['auto', 'extra-help', 'builder', 
 const VALID_AUDIO_MODES = new Set<LetterAudioMode>(['phonics', 'names-and-sounds']);
 const VALID_SPEEDS = new Set<VoiceSpeed>(['slow', 'normal']);
 const VALID_BLENDING_STYLES = new Set<BlendingStyle>(['successive', 'continuous']);
+const VALID_TILE_MODES = new Set<TileMode>(['single-letters', 'digraph-teams']);
 const VALID_ZONES = new Set<ZoneId>([1, 2, 3, 4, 5, 6]);
 const VALID_MAP_NODES = new Set<MapNodeId>([
   'pallet',
@@ -115,6 +126,9 @@ function sanitizeSettings(raw: unknown): ParentSettings {
     blendingStyle: VALID_BLENDING_STYLES.has(obj.blendingStyle as BlendingStyle)
       ? (obj.blendingStyle as BlendingStyle)
       : defaults.blendingStyle,
+    tileMode: VALID_TILE_MODES.has(obj.tileMode as TileMode)
+      ? (obj.tileMode as TileMode)
+      : defaults.tileMode,
     voiceEnabled: typeof obj.voiceEnabled === 'boolean' ? obj.voiceEnabled : defaults.voiceEnabled,
     chimesEnabled: typeof obj.chimesEnabled === 'boolean' ? obj.chimesEnabled : defaults.chimesEnabled,
     unlockAllZones: typeof obj.unlockAllZones === 'boolean' ? obj.unlockAllZones : defaults.unlockAllZones,
@@ -153,6 +167,36 @@ function sanitizeWordMastery(raw: unknown): Record<string, WordMasteryRecord> {
       status,
       lastPracticedAt: nonNegativeInt(rec.lastPracticedAt),
     };
+  }
+  return result;
+}
+
+function sanitizeCaughtDetails(
+  raw: unknown,
+  caughtIds: number[],
+): Record<number, CaughtPokemonDetail> {
+  const result: Record<number, CaughtPokemonDetail> = {};
+  if (raw && typeof raw === 'object') {
+    for (const [key, val] of Object.entries(raw as Record<string, unknown>)) {
+      const id = Number(key);
+      if (!Number.isInteger(id) || id < 1 || id > 151) continue;
+      if (!val || typeof val !== 'object') continue;
+      const rec = val as Record<string, unknown>;
+      result[id] = {
+        count: Math.max(1, nonNegativeInt(rec.count, 1)),
+        firstCaughtAt: nonNegativeInt(rec.firstCaughtAt, Date.now()),
+        lastTown: typeof rec.lastTown === 'string' && rec.lastTown.trim() ? rec.lastTown : 'Kanto',
+      };
+    }
+  }
+  for (const id of caughtIds) {
+    if (!result[id]) {
+      result[id] = {
+        count: 1,
+        firstCaughtAt: Date.now(),
+        lastTown: id === 133 ? 'Pallet Town' : 'Kanto',
+      };
+    }
   }
   return result;
 }
@@ -209,6 +253,7 @@ export function loadProgress(storage?: StorageLike): PlayerProgress {
         )
       : [];
     const caughtPokemonIds = Array.from(new Set([133, ...rawPokemon]));
+    const caughtPokemonDetails = sanitizeCaughtDetails(obj.caughtPokemonDetails, caughtPokemonIds);
 
     const earnedBadges = Array.isArray(obj.earnedBadges)
       ? Array.from(
@@ -244,6 +289,7 @@ export function loadProgress(storage?: StorageLike): PlayerProgress {
       completedChains,
       masteredLetters,
       caughtPokemonIds,
+      caughtPokemonDetails,
       earnedBadges,
       equippedAccessories: sanitizeEquipped(obj.equippedAccessories),
       selectedMoveId,
@@ -286,7 +332,7 @@ export function resetProgress(storage?: StorageLike): PlayerProgress {
 export function recordWordAttempt(
   progress: PlayerProgress,
   wordId: string,
-  meta: { usedHelp: boolean; wrongAttempts: number; now?: number },
+  meta: { usedHelp: boolean; wrongAttempts: number; now?: number; focusWord?: string },
 ): PlayerProgress {
   const prev = progress.wordMastery[wordId] ?? {
     attempts: 0,
@@ -302,8 +348,22 @@ export function recordWordAttempt(
   const attempts = prev.attempts + 1;
   const status: MasteryStatus = cleanWins >= 2 ? 'mastered' : 'learning';
 
+  // Organically unlock every A-Z letter practiced in the spelled word!
+  let nextMasteredLetters = progress.masteredLetters;
+  if (meta.focusWord) {
+    const letters = meta.focusWord
+      .toUpperCase()
+      .split('')
+      .filter((ch) => /^[A-Z]$/.test(ch));
+    const merged = Array.from(new Set([...progress.masteredLetters, ...letters]));
+    if (merged.length !== progress.masteredLetters.length) {
+      nextMasteredLetters = merged;
+    }
+  }
+
   return {
     ...progress,
+    masteredLetters: nextMasteredLetters,
     wordMastery: {
       ...progress.wordMastery,
       [wordId]: {
@@ -313,6 +373,45 @@ export function recordWordAttempt(
         status,
         lastPracticedAt: meta.now ?? Date.now(),
       },
+    },
+  };
+}
+
+/**
+ * Immediately saves a newly captured/befriended Pokémon to local progress
+ * (even mid-stage!) with catch count and town provenance.
+ */
+export function recordSinglePokemonCatch(
+  progress: PlayerProgress,
+  pokemonId: number,
+  townName: string,
+  now: number = Date.now(),
+): PlayerProgress {
+  if (!Number.isInteger(pokemonId) || pokemonId < 1 || pokemonId > 151) {
+    return progress;
+  }
+  const nextIds = progress.caughtPokemonIds.includes(pokemonId)
+    ? progress.caughtPokemonIds
+    : [...progress.caughtPokemonIds, pokemonId];
+  const prev = progress.caughtPokemonDetails[pokemonId];
+  const nextDetail: CaughtPokemonDetail = prev
+    ? {
+        count: prev.count + 1,
+        firstCaughtAt: prev.firstCaughtAt,
+        lastTown: townName,
+      }
+    : {
+        count: 1,
+        firstCaughtAt: now,
+        lastTown: townName,
+      };
+
+  return {
+    ...progress,
+    caughtPokemonIds: nextIds,
+    caughtPokemonDetails: {
+      ...progress.caughtPokemonDetails,
+      [pokemonId]: nextDetail,
     },
   };
 }

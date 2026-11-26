@@ -6,19 +6,20 @@ import { WORD_CHAINS } from '../data/wordChains';
 import type { ZoneId } from '../data/types';
 
 describe('Curriculum & Dataset Integrity', () => {
-  it('defines all 6 Kanto zones with at least 10 words per zone', () => {
+  it('defines all 6 Kanto zones with 15 words per zone (90 words total)', () => {
     expect(ZONES).toHaveLength(6);
     ([1, 2, 3, 4, 5, 6] as ZoneId[]).forEach((zoneId) => {
-      expect(getWordsByZone(zoneId).length).toBeGreaterThanOrEqual(10);
+      expect(getWordsByZone(zoneId).length).toBeGreaterThanOrEqual(15);
     });
   });
 
-  it('guarantees every curriculum word units concatenate exactly to focusWord', () => {
+  it('guarantees every curriculum word units concatenate exactly to focusWord and never mirrors Eevee (#133) as an opponent', () => {
     for (const word of CURRICULUM_WORDS) {
       const joined = word.units.map((u) => u.letters).join('');
       expect(joined, `Word ${word.id} (${word.displayWord})`).toBe(word.focusWord);
       expect(word.units.length).toBeGreaterThanOrEqual(2);
-      expect(word.units.length).toBeLessThanOrEqual(5);
+      expect(word.units.length).toBeLessThanOrEqual(9);
+      expect(word.pokemonId, `Word ${word.id} should not battle Eevee #133`).not.toBe(133);
     }
   });
 

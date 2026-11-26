@@ -27,10 +27,11 @@ interface ElkoninBoardProps {
 const IDLE_HINT_MS = 6500;
 
 /**
- * Minimal-text, picture-first Elkonin Sound Box spelling tray matching the approved V3 Switch mockup:
- * - Left: Painted Word Picture Card (tap to hear the word aloud!)
- * - Center: Ceramic Elkonin sound boxes directly above tactile ceramic letter tiles
- * - Right: Big round blue Speaker button (Hear Word) + warm caramel Paw button (Eevee Help!)
+ * Picture + First-Letter minimal Switch Elkonin spelling tray:
+ * - Left: Painted Word Picture Card (or official Curative Bottle in Zone 4!)
+ * - Center: Ceramic Elkonin letter boxes (with first letter pre-filled in Starter mode
+ *   and subtle team underline connecting digraph letter pairs) + Single-Letter ceramic tiles
+ * - Right: Big round tactile Speaker, Sound-Out, and Eevee Help icon buttons
  */
 export const ElkoninBoard: React.FC<ElkoninBoardProps> = ({
   challenge,
@@ -42,6 +43,7 @@ export const ElkoninBoard: React.FC<ElkoninBoardProps> = ({
   const [wiggleTileId, setWiggleTileId] = useState<string | null>(null);
 
   const word: WordEntry = challenge.word;
+  const activeUnits = challenge.units;
   const correctTileId = findCorrectTileIdForActiveBox(challenge);
   const pictureSlug = resolveWordPictureSlug(word);
 
@@ -52,18 +54,13 @@ export const ElkoninBoard: React.FC<ElkoninBoardProps> = ({
       const hinted = triggerIdleHint(challenge);
       onChallengeChange(hinted);
       soundEffects.playHintSparkle();
-      const activeUnit =
-        challenge.activeIndex !== null ? word.units[challenge.activeIndex] : null;
-      if (activeUnit) {
-        onCoachMessage(
-          word.focusWord,
-          `Take your time! Look for the glowing tile to build ${word.focusWord.toLowerCase()}!`,
-          'encouraging',
-        );
-      }
+      void speechEngine.speakUiCue(
+        'glow_hint',
+        `Take your time! Look for the glowing letter!`,
+      );
     }, IDLE_HINT_MS);
     return () => window.clearTimeout(timer);
-  }, [challenge, onChallengeChange, onCoachMessage, word]);
+  }, [challenge, onChallengeChange]);
 
   const handleBoxTap = (unit: PhonemeUnit, isFilled: boolean) => {
     soundEffects.playTileTap();
@@ -121,22 +118,18 @@ export const ElkoninBoard: React.FC<ElkoninBoardProps> = ({
       soundEffects.playHintSparkle();
       setWiggleTileId(tileId);
       window.setTimeout(() => setWiggleTileId(null), 380);
-      const hint = getPointOfErrorHint(
-        outcome.chosenTile,
-        outcome.expectedUnit,
-        word.focusWord,
-        2,
+      void speechEngine.speakUiCue(
+        'glow_hint',
+        `Look for the glowing letter!`,
       );
-      onCoachMessage(hint, hint, 'encouraging');
       return;
     }
 
     if (outcome.result === 'auto-assist-tier-3' && outcome.expectedUnit) {
       soundEffects.playCorrectPop();
-      onCoachMessage(
-        outcome.expectedUnit.letters,
-        `Eevee placed that sound for you! Great teamwork!`,
-        'happy',
+      void speechEngine.speakUiCue(
+        'teamwork',
+        `Great teamwork! Eevee placed that letter for you!`,
       );
       if (outcome.state.isComplete) {
         onWordBuilt({
@@ -152,10 +145,9 @@ export const ElkoninBoard: React.FC<ElkoninBoardProps> = ({
     if (!placedUnit) return;
     soundEffects.playCorrectPop();
     onChallengeChange(nextState);
-    onCoachMessage(
-      placedUnit.letters,
-      `Eevee placed that sound for you! Great teamwork!`,
-      'happy',
+    void speechEngine.speakUiCue(
+      'teamwork',
+      `Great teamwork! Eevee placed that letter for you!`,
     );
     if (nextState.isComplete) {
       onWordBuilt({
@@ -183,7 +175,7 @@ export const ElkoninBoard: React.FC<ElkoninBoardProps> = ({
       word.successiveChunkCues,
     );
     const spokenParts = cues.map((c) => c.speechText).join(' ... ');
-    void speechEngine.speak(spokenParts, { rateOverride: 0.76 });
+    void speechEngine.speak(spokenParts, { rateOverride: 0.78 });
   };
 
   // Full desktop keyboard support
@@ -205,9 +197,11 @@ export const ElkoninBoard: React.FC<ElkoninBoardProps> = ({
     return () => window.removeEventListener('keydown', onKeyDown);
   });
 
+  const isLongWord = activeUnits.length >= 6;
+
   return (
     <div className="minimal-battle-tray" aria-label={`Spell ${word.displayWord}`}>
-      {/* Left: Painted Word Picture Card (tap to hear word aloud) */}
+      {/* Left: Painted Word Picture Card (or Official Curative Medicine Image in Zone 4) */}
       <WordPictureCard
         pictureSlug={pictureSlug}
         itemSlug={word.itemSlug}
@@ -217,19 +211,30 @@ export const ElkoninBoard: React.FC<ElkoninBoardProps> = ({
         onTap={handleHearWord}
       />
 
-      {/* Center: Ceramic Elkonin Boxes + Ceramic Sound Tiles */}
+      {/* Center: Ceramic Elkonin Letter Boxes (First Letter Pre-Filled!) + Single-Letter Tiles */}
       <div className="minimal-battle-tray__center">
-        <div className="elkonin-row" role="group" aria-label="Elkonin sound boxes">
+        <div
+          className={`elkonin-row ${isLongWord ? 'elkonin-row--compact' : ''}`}
+          role="group"
+          aria-label="Elkonin sound boxes"
+        >
           {word.prefixDisplay && (
             <span className="focus-affix" aria-hidden="true">
               {word.prefixDisplay}
             </span>
           )}
 
-          {word.units.map((unit, idx) => {
+          {activeUnits.map((unit, idx) => {
             const isFilled = challenge.filledMask[idx] ?? false;
             const isActive = challenge.activeIndex === idx;
             const showGhost = isActive && challenge.showGhostLetter;
+            const hasTeam = Boolean(unit.teamGroupId);
+            const prevSameTeam =
+              hasTeam && idx > 0 && activeUnits[idx - 1]?.teamGroupId === unit.teamGroupId;
+            const nextSameTeam =
+              hasTeam &&
+              idx < activeUnits.length - 1 &&
+              activeUnits[idx + 1]?.teamGroupId === unit.teamGroupId;
 
             return (
               <button
@@ -237,17 +242,19 @@ export const ElkoninBoard: React.FC<ElkoninBoardProps> = ({
                 id={`elkonin-box-${idx}`}
                 type="button"
                 onClick={() => handleBoxTap(unit, isFilled)}
-                className={`elkonin-box ${
+                className={`elkonin-box ${isLongWord ? 'elkonin-box--sm' : ''} ${
                   isFilled
                     ? 'elkonin-box--filled'
                     : isActive
                       ? 'elkonin-box--empty elkonin-box--active switch-cursor-glow'
                       : 'elkonin-box--empty'
-                }`}
+                } ${hasTeam ? 'elkonin-box--team' : ''} ${
+                  prevSameTeam ? 'elkonin-box--team-left' : ''
+                } ${nextSameTeam ? 'elkonin-box--team-right' : ''}`}
                 aria-label={
                   isFilled
-                    ? `Sound box ${idx + 1}: ${unit.letters}. Tap to hear sound.`
-                    : `Missing sound box ${idx + 1}. Tap to hear a sound hint.`
+                    ? `Letter box ${idx + 1}: ${unit.letters}. Tap to hear sound.`
+                    : `Missing letter box ${idx + 1}. Tap to hear a sound hint.`
                 }
               >
                 {isFilled ? (
@@ -255,7 +262,9 @@ export const ElkoninBoard: React.FC<ElkoninBoardProps> = ({
                 ) : showGhost ? (
                   <span className="elkonin-ghost">{unit.letters}</span>
                 ) : (
-                  <span style={{ color: '#94A3B8', fontSize: '1.5rem' }}>?</span>
+                  <span style={{ color: '#94A3B8', fontSize: isLongWord ? '1.25rem' : '1.5rem' }}>
+                    ?
+                  </span>
                 )}
 
                 {unit.isHeartWord && (
@@ -264,7 +273,7 @@ export const ElkoninBoard: React.FC<ElkoninBoardProps> = ({
                     title={unit.heartHint || 'Heart Word'}
                     aria-label="Heart Word hint"
                   >
-                    <HeartIcon size={13} color="#E11D48" />
+                    <HeartIcon size={12} color="#E11D48" />
                   </span>
                 )}
               </button>

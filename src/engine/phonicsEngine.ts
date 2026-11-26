@@ -2,11 +2,17 @@ import { areMirrorConfusable, getPhonemeInfo } from '../data/phonemes';
 import type {
   PhonemeUnit,
   ScaffoldMode,
+  TileMode,
   WordEntry,
   WordMasteryRecord,
 } from '../data/types';
 
 export type EffectiveScaffoldLevel = 'starter' | 'builder' | 'explorer';
+
+export interface ActiveBoxUnit extends PhonemeUnit {
+  /** Shared teamGroupId links 2+ single-letter boxes that form a digraph/vowel team (e.g. S + H) */
+  teamGroupId?: number;
+}
 
 export interface TileOption {
   id: string;
@@ -17,6 +23,9 @@ export interface TileOption {
 
 export interface WordChallengeState {
   word: WordEntry;
+  /** Effective box units (1-letter decomposed in 'single-letters' mode, or phoneme units in 'digraph-teams' mode) */
+  units: ActiveBoxUnit[];
+  tileMode: TileMode;
   scaffoldLevel: EffectiveScaffoldLevel;
   /** Which box indices are currently filled */
   filledMask: boolean[];
@@ -37,9 +46,38 @@ export interface TileSelectionOutcome {
   state: WordChallengeState;
   result: 'correct' | 'wrong-tier-1' | 'wrong-tier-2' | 'auto-assist-tier-3' | 'ignored';
   chosenTile: TileOption | null;
-  expectedUnit: PhonemeUnit | null;
+  expectedUnit: ActiveBoxUnit | null;
   autoPlacedTileId?: string;
 }
+
+const SINGLE_LETTER_PHONEME: Record<string, string> = {
+  A: 'a_short',
+  B: 'b',
+  C: 'c',
+  D: 'd',
+  E: 'e_short',
+  F: 'f',
+  G: 'g',
+  H: 'h',
+  I: 'i_short',
+  J: 'j',
+  K: 'k',
+  L: 'l',
+  M: 'm',
+  N: 'n',
+  O: 'o_short',
+  P: 'p',
+  Q: 'qu',
+  R: 'r',
+  S: 's',
+  T: 't',
+  U: 'u_short',
+  V: 'v',
+  W: 'w',
+  X: 'x',
+  Y: 'y_cons',
+  Z: 'z',
+};
 
 const SINGLE_CONSONANT_POOL: readonly { letters: string; phonemeKey: string }[] = [
   { letters: 'M', phonemeKey: 'm' },
@@ -57,6 +95,9 @@ const SINGLE_CONSONANT_POOL: readonly { letters: string; phonemeKey: string }[] 
   { letters: 'D', phonemeKey: 'd' },
   { letters: 'W', phonemeKey: 'w' },
   { letters: 'K', phonemeKey: 'k' },
+  { letters: 'V', phonemeKey: 'v' },
+  { letters: 'J', phonemeKey: 'j' },
+  { letters: 'Z', phonemeKey: 'z' },
 ];
 
 const VOWEL_POOL: readonly { letters: string; phonemeKey: string }[] = [
@@ -86,8 +127,8 @@ const DIGRAPH_POOL: readonly { letters: string; phonemeKey: string }[] = [
 
 /**
  * Resolves effective scaffold level.
- * New words always begin in Starter mode (1 missing box) under Auto-Adaptive
- * so a 5-year-old builds immediate confidence and never faces a wall of blanks.
+ * New words always begin in Starter mode under Auto-Adaptive so a 5-year-old
+ * sees Picture + First Letter and builds immediate confidence.
  */
 export function resolveEffectiveScaffold(
   mode: ScaffoldMode,
@@ -97,10 +138,52 @@ export function resolveEffectiveScaffold(
   if (mode === 'builder') return 'builder';
   if (mode === 'explorer') return 'explorer';
 
-  // Auto-Adaptive: start gentle!
   if (!mastery || mastery.cleanWins === 0) return 'starter';
   if (mastery.cleanWins === 1) return 'builder';
   return 'explorer';
+}
+
+/**
+ * Converts a word's phoneme units into active Elkonin box units.
+ * - In 'single-letters' mode (V4 default): every box is strictly ONE single letter,
+ *   while multi-letter digraphs/vowel teams share a teamGroupId so the UI draws
+ *   a gentle connector bracket underneath them!
+ * - In 'digraph-teams' mode: keeps true 2-letter digraphs/vowel teams intact while
+ *   still splitting 3+ letter chunks (like TION, TCH, IGH) so no giant blobs appear.
+ */
+export function expandUnitsForTileMode(
+  units: readonly PhonemeUnit[],
+  tileMode: TileMode = 'single-letters',
+): ActiveBoxUnit[] {
+  const result: ActiveBoxUnit[] = [];
+  let nextTeamId = 1;
+
+  for (const unit of units) {
+    const clean = unit.letters.toUpperCase();
+    const shouldSplit =
+      tileMode === 'single-letters'
+        ? clean.length > 1
+        : clean.length > 2;
+
+    if (!shouldSplit) {
+      result.push({ ...unit, letters: clean });
+      continue;
+    }
+
+    const groupId = nextTeamId++;
+    for (let i = 0; i < clean.length; i += 1) {
+      const ch = clean[i]!;
+      result.push({
+        letters: ch,
+        phonemeKey: SINGLE_LETTER_PHONEME[ch] ?? unit.phonemeKey,
+        isHeartWord: i === 0 ? unit.isHeartWord : undefined,
+        heartHint: i === 0 ? unit.heartHint : undefined,
+        teamGroupId: groupId,
+      });
+    }
+  }
+
+  return result;
 }
 
 function deterministicShuffle<T>(items: T[], rng: () => number): T[] {
@@ -115,13 +198,20 @@ function deterministicShuffle<T>(items: T[], rng: () => number): T[] {
 }
 
 function isVowelUnit(unit: PhonemeUnit): boolean {
-  const vowels = new Set(['A', 'E', 'I', 'O', 'U', 'EA', 'EE', 'AY', 'AI', 'OO', 'OU', 'IE', 'UY', 'IGH', 'AR', 'ER', 'UR', 'OW']);
+  const vowels = new Set([
+    'A', 'E', 'I', 'O', 'U', 'EA', 'EE', 'AY', 'AI', 'OO', 'OU', 'IE', 'UY', 'IGH', 'AR', 'ER', 'UR', 'OW',
+  ]);
   return vowels.has(unit.letters.toUpperCase());
 }
 
 /**
- * Picks indices that should start blank based on scaffold level.
- * Starter mode blanks 1 sound box (prioritizing medial vowel or initial/final focus).
+ * Picks which box indices start blank.
+ * V4 First-Letter Guarantee:
+ * - In 'starter' mode: ALWAYS keeps index 0 (the first letter!) pre-filled so the child
+ *   gets Picture + First Letter together! Blanks 1 letter for short words (2–4 boxes)
+ *   or 2 letters for longer curative/multi-syllable words (5+ boxes).
+ * - In 'builder' mode: keeps index 0 visible when possible (count >= 3) and blanks 2–3 boxes.
+ * - In 'explorer' mode: blanks every box for full independent spelling!
  */
 export function pickMissingIndices(
   units: readonly PhonemeUnit[],
@@ -135,51 +225,51 @@ export function pickMissingIndices(
     return units.map((_, i) => i);
   }
 
+  // Non-initial indices (index 0 is ALWAYS anchored in starter & 3+ builder!)
+  const nonInitial = units.map((_, idx) => idx).filter((idx) => idx > 0);
+
   if (scaffoldLevel === 'starter') {
-    // Prefer a regular sound box first; avoid leaving an irregular Heart-Word chunk as the only blank
-    const regularIndices = units
-      .map((u, idx) => ({ u, idx }))
-      .filter(({ u }) => !u.isHeartWord)
-      .map(({ idx }) => idx);
-    const pool = regularIndices.length > 0 ? regularIndices : units.map((_, idx) => idx);
-    const picked = pool[Math.floor(rng() * pool.length)] ?? 0;
-    return [picked];
+    const regularNonInitial = nonInitial.filter((idx) => !units[idx]?.isHeartWord);
+    const pool = regularNonInitial.length > 0 ? regularNonInitial : nonInitial;
+    const desiredBlanks = count >= 6 ? 2 : 1;
+    const shuffled = deterministicShuffle(pool, rng);
+    return shuffled.slice(0, Math.min(desiredBlanks, pool.length)).sort((a, b) => a - b);
   }
 
-  // Builder mode: 2 missing boxes (capped at units.length)
-  const targetBlanks = Math.min(2, count);
-  const allIndices = deterministicShuffle(
-    units.map((_, idx) => idx),
-    rng,
-  );
-  return allIndices.slice(0, targetBlanks).sort((a, b) => a - b);
+  // Builder mode: 2 blanks (or 3 for 6+ letter curatives), keeping first letter visible when count >= 3
+  const desiredBlanks = count >= 6 ? 3 : Math.min(2, count);
+  const candidatePool = count >= desiredBlanks + 1 ? nonInitial : units.map((_, idx) => idx);
+  const shuffled = deterministicShuffle(candidatePool, rng);
+  return shuffled.slice(0, Math.min(desiredBlanks, candidatePool.length)).sort((a, b) => a - b);
 }
 
 /**
  * Generates choice tiles for the Elkonin board.
- * Enforces the mirror-confusion filter (B/D, P/Q, M/W, N/U, S/Z) in Zones 1–2.
+ * Enforces the mirror-confusion filter (B/D, P/Q, M/W, N/U, S/Z) in Zones 1–2
+ * and strictly uses single-letter tiles when tileMode === 'single-letters'.
  */
 export function buildWordChallenge(
   word: WordEntry,
   scaffoldLevel: EffectiveScaffoldLevel,
   rng: () => number = Math.random,
+  tileMode: TileMode = 'single-letters',
 ): WordChallengeState {
-  const missingIndices = pickMissingIndices(word.units, scaffoldLevel, rng);
+  const activeUnits = expandUnitsForTileMode(word.units, tileMode);
+  const missingIndices = pickMissingIndices(activeUnits, scaffoldLevel, rng);
   const missingSet = new Set(missingIndices);
-  const filledMask = word.units.map((_, idx) => !missingSet.has(idx));
+  const filledMask = activeUnits.map((_, idx) => !missingSet.has(idx));
   const activeIndex = filledMask.findIndex((filled) => !filled);
 
-  const requiredUnits = missingIndices.map((idx) => word.units[idx]!);
+  const requiredUnits = missingIndices.map((idx) => activeUnits[idx]!);
   const targetLettersSet = new Set(requiredUnits.map((u) => u.letters.toUpperCase()));
   const avoidMirrors = word.zoneId <= 2;
 
-  const targetTileCount = Math.max(4, Math.min(6, requiredUnits.length + 3));
+  const targetTileCount = Math.max(4, Math.min(7, requiredUnits.length + 3));
   const neededDistractors = Math.max(1, targetTileCount - requiredUnits.length);
 
-  // Build candidate distractor pool tailored to missing tile types
   const primaryMissing = requiredUnits[0]!;
   const primaryPool =
-    primaryMissing.letters.length > 1
+    tileMode === 'digraph-teams' && primaryMissing.letters.length > 1
       ? [...DIGRAPH_POOL, ...VOWEL_POOL, ...SINGLE_CONSONANT_POOL]
       : isVowelUnit(primaryMissing)
         ? [...VOWEL_POOL, ...SINGLE_CONSONANT_POOL]
@@ -188,6 +278,7 @@ export function buildWordChallenge(
   const validDistractors = deterministicShuffle(
     primaryPool.filter((cand) => {
       const upper = cand.letters.toUpperCase();
+      if (tileMode === 'single-letters' && upper.length > 1) return false;
       if (targetLettersSet.has(upper)) return false;
       if (avoidMirrors) {
         for (const targetLetter of targetLettersSet) {
@@ -201,7 +292,6 @@ export function buildWordChallenge(
     rng,
   );
 
-  // Deduplicate distractor letters
   const seenDistractors = new Set<string>();
   const chosenDistractors: { letters: string; phonemeKey: string }[] = [];
   for (const cand of validDistractors) {
@@ -230,6 +320,8 @@ export function buildWordChallenge(
 
   return {
     word,
+    units: activeUnits,
+    tileMode,
     scaffoldLevel,
     filledMask,
     activeIndex: activeIndex === -1 ? null : activeIndex,
@@ -245,7 +337,7 @@ export function buildWordChallenge(
 
 export function findCorrectTileIdForActiveBox(state: WordChallengeState): string | null {
   if (state.activeIndex === null) return null;
-  const expected = state.word.units[state.activeIndex];
+  const expected = state.units[state.activeIndex];
   if (!expected) return null;
   const match = state.tiles.find(
     (t) => !t.used && t.letters.toUpperCase() === expected.letters.toUpperCase(),
@@ -297,7 +389,7 @@ export function evaluateTileSelection(
   }
 
   const chosenTile = state.tiles.find((t) => t.id === tileId && !t.used) ?? null;
-  const expectedUnit = state.word.units[state.activeIndex] ?? null;
+  const expectedUnit = state.units[state.activeIndex] ?? null;
 
   if (!chosenTile || !expectedUnit) {
     return { state, result: 'ignored', chosenTile: null, expectedUnit };
@@ -343,7 +435,6 @@ export function evaluateTileSelection(
     };
   }
 
-  // Tier 3 (3rd wrong try): Eevee cheerfully places the letter so nothing is insurmountable!
   const correctTileId = findCorrectTileIdForActiveBox(state);
   if (!correctTileId) {
     return { state, result: 'ignored', chosenTile, expectedUnit };
@@ -368,10 +459,6 @@ export function evaluateTileSelection(
   };
 }
 
-/**
- * Triggered after a 6.5s idle pause: gently illuminates the golden sparkle beacon
- * and soft ghost letter inside the active Elkonin box.
- */
 export function triggerIdleHint(state: WordChallengeState): WordChallengeState {
   if (state.isComplete || state.activeIndex === null) return state;
   return {
@@ -381,18 +468,14 @@ export function triggerIdleHint(state: WordChallengeState): WordChallengeState {
   };
 }
 
-/**
- * Triggered anytime the child taps "Eevee Help!": Eevee cheerfully places
- * the needed tile for the active Elkonin box.
- */
 export function triggerEeveeHelp(state: WordChallengeState): {
   state: WordChallengeState;
-  placedUnit: PhonemeUnit | null;
+  placedUnit: ActiveBoxUnit | null;
 } {
   if (state.isComplete || state.activeIndex === null) {
     return { state, placedUnit: null };
   }
-  const expectedUnit = state.word.units[state.activeIndex] ?? null;
+  const expectedUnit = state.units[state.activeIndex] ?? null;
   const correctTileId = findCorrectTileIdForActiveBox(state);
   if (!correctTileId || !expectedUnit) {
     return { state, placedUnit: null };
@@ -403,20 +486,15 @@ export function triggerEeveeHelp(state: WordChallengeState): {
   };
 }
 
-/**
- * Finds an unused tile matching keyboard input (e.g. pressing "U" or "S").
- */
 export function findTileIdByKey(state: WordChallengeState, key: string): string | null {
   const upper = key.toUpperCase();
   if (!/^[A-Z]$/.test(upper)) return null;
 
-  // Prefer exact single-letter match first
   const exact = state.tiles.find((t) => !t.used && t.letters.toUpperCase() === upper);
   if (exact) return exact.id;
 
-  // If the active expected unit starts with this letter (e.g. "SH" or "CK"), match it
   if (state.activeIndex !== null) {
-    const expected = state.word.units[state.activeIndex];
+    const expected = state.units[state.activeIndex];
     if (expected && expected.letters.toUpperCase().startsWith(upper)) {
       const startsMatch = state.tiles.find(
         (t) => !t.used && t.letters.toUpperCase() === expected.letters.toUpperCase(),
@@ -428,9 +506,6 @@ export function findTileIdByKey(state: WordChallengeState, key: string): string 
   return null;
 }
 
-/**
- * Builds a warm, point-of-error phonetic coaching line when the child taps a wrong tile.
- */
 export function getPointOfErrorHint(
   chosenTile: TileOption,
   expectedUnit: PhonemeUnit,

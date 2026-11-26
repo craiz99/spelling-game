@@ -60,9 +60,10 @@ export const ParentSettingsModal: React.FC<ParentSettingsModalProps> = ({
   const handleTestVoice = () => {
     soundEffects.unlock();
     soundEffects.playCorrectPop();
-    void speechEngine.speak(
+    void speechEngine.speakUiCue(
+      'test_voice',
       'Hi friend! Let us blend the sounds in sun. sss ... suh ... sun!',
-      { interrupt: false },
+      false,
     );
     setDiagTick((t) => t + 1);
   };
@@ -104,7 +105,7 @@ export const ParentSettingsModal: React.FC<ParentSettingsModalProps> = ({
             {(
               [
                 ['auto', 'Auto-Adaptive'],
-                ['extra-help', 'Extra Help (1 Blank)'],
+                ['extra-help', 'Extra Help (1st Letter Shown)'],
                 ['builder', 'Builder (2 Blanks)'],
                 ['explorer', 'Explorer (All Blanks)'],
               ] as [ScaffoldMode, string][]
@@ -114,6 +115,30 @@ export const ParentSettingsModal: React.FC<ParentSettingsModalProps> = ({
                 type="button"
                 className={`seg-btn ${settings.scaffoldMode === val ? 'seg-btn--active' : ''}`}
                 onClick={() => onUpdateSettings({ scaffoldMode: val })}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Letter Tile Mode (Single Letters vs 2-Letter Digraph Teams) */}
+        <div className="settings-group">
+          <div style={{ fontWeight: 900, fontSize: '0.94rem' }}>
+            Letter Tile Style
+          </div>
+          <div className="segmented-control">
+            {(
+              [
+                ['single-letters', 'Single Letters (Recommended for 5yo)'],
+                ['digraph-teams', '2-Letter Sound Teams (SH, CH, EA)'],
+              ] as const
+            ).map(([val, label]) => (
+              <button
+                key={val}
+                type="button"
+                className={`seg-btn ${settings.tileMode === val ? 'seg-btn--active' : ''}`}
+                onClick={() => onUpdateSettings({ tileMode: val })}
               >
                 {label}
               </button>
@@ -175,8 +200,9 @@ export const ParentSettingsModal: React.FC<ParentSettingsModalProps> = ({
               border: '1px solid var(--border-soft)',
             }}
           >
-            Speech API: {diagnostics.speechSupported ? 'Ready' : 'Unavailable'} · Voices detected:{' '}
-            {diagnostics.voiceCount} · Active voice: {diagnostics.activeVoiceName}
+            {diagnostics.humanVoiceReady
+              ? `Human Voice Pack: Active (${diagnostics.humanVoiceClips} Neural Clips) · Fallback Voices: ${diagnostics.voiceCount}`
+              : `Speech API: ${diagnostics.speechSupported ? 'Ready' : 'Unavailable'} · Active voice: ${diagnostics.activeVoiceName}`}
           </div>
 
           <div className="settings-row">

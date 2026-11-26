@@ -193,26 +193,28 @@ class SoundEffectsEngine {
     this.playTone(349.23, 0.06, { type: 'triangle', gain: 0.18, slideToFreq: 415 });
   }
 
-  /** Synchronized with the 5-beat target-locked Poké Ball Capture sequence! */
+  /** Synchronized with the 5-beat target-locked Poké Ball Capture sequence (3 distinct wiggles + front lock light)! */
   public playPokeBallThrow(): void {
     // Beat 1: Whoosh throw arc (0ms)
     this.playTone(340, 0.36, { type: 'sine', gain: 0.26, slideToFreq: 780 });
-    // Beat 2: Red beam hit impact (450ms)
-    this.playTone(660, 0.16, { type: 'triangle', gain: 0.28, delaySec: 0.45, slideToFreq: 980 });
-    // Beat 3: Bounce on ground (800ms)
-    this.playTone(260, 0.11, { type: 'sine', gain: 0.24, delaySec: 0.8, slideToFreq: 190 });
-    // Beat 4: 3 suspense wobbles (1080ms, 1360ms, 1640ms)
-    this.playTone(440, 0.11, { type: 'triangle', gain: 0.24, delaySec: 1.08, slideToFreq: 520 });
-    this.playTone(493.88, 0.11, { type: 'triangle', gain: 0.24, delaySec: 1.36, slideToFreq: 587 });
-    this.playTone(554.37, 0.11, { type: 'triangle', gain: 0.24, delaySec: 1.64, slideToFreq: 659 });
+    // Beat 2: Red beam hit impact (420ms)
+    this.playTone(660, 0.16, { type: 'triangle', gain: 0.28, delaySec: 0.42, slideToFreq: 980 });
+    // Beat 3: Bounce on ground (780ms)
+    this.playTone(260, 0.11, { type: 'sine', gain: 0.24, delaySec: 0.78, slideToFreq: 190 });
+    // Beat 4: 3 distinct wiggles with suspense pauses (1040ms, 1540ms, 2040ms)
+    this.playTone(440, 0.12, { type: 'triangle', gain: 0.24, delaySec: 1.04, slideToFreq: 520 });
+    this.playTone(493.88, 0.12, { type: 'triangle', gain: 0.24, delaySec: 1.54, slideToFreq: 587 });
+    this.playTone(554.37, 0.12, { type: 'triangle', gain: 0.26, delaySec: 2.04, slideToFreq: 659 });
   }
 
   public playCatchSuccess(): void {
+    // Front capture lock-in light "click!" chime + classic fanfare
     const notes = [
-      { f: 523.25, d: 0.12, t: 0 },
-      { f: 659.25, d: 0.12, t: 0.11 },
-      { f: 783.99, d: 0.12, t: 0.22 },
-      { f: 1046.5, d: 0.38, t: 0.34 },
+      { f: 1318.5, d: 0.08, t: 0 },
+      { f: 523.25, d: 0.12, t: 0.08 },
+      { f: 659.25, d: 0.12, t: 0.19 },
+      { f: 783.99, d: 0.12, t: 0.3 },
+      { f: 1046.5, d: 0.4, t: 0.42 },
     ];
     notes.forEach((n) => {
       this.playTone(n.f, n.d, { type: 'triangle', gain: 0.3, delaySec: n.t });

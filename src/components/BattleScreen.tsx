@@ -20,7 +20,6 @@ import {
   triggerBattlePayoffAction,
   type BattleState,
 } from '../engine/battleEngine';
-import { getEncouragement } from '../engine/encouragementEngine';
 import { getUnlockedMoves } from '../engine/milestoneEngine';
 import { getLandmarkByZone, getSceneUrl } from '../engine/overworldEngine';
 import {
@@ -28,12 +27,14 @@ import {
   resolveEffectiveScaffold,
   type WordChallengeState,
 } from '../engine/phonicsEngine';
+import { AmbientSceneLayer, type SceneBiome } from './AmbientSceneLayer';
 import { EeveeAvatar } from './EeveeAvatar';
 import { ElkoninBoard } from './ElkoninBoard';
 import { PawSlideBlender } from './PawSlideBlender';
 import { PokeBallCaptureLayer } from './PokeBallCaptureLayer';
 import { ItemSprite, PokemonSprite } from './PokemonSprite';
 import { SceneVfxLayer } from './SceneVfxLayer';
+import { StatusEffectOverlay } from './StatusEffectOverlay';
 import {
   BackChevronIcon,
   HeartIcon,
@@ -47,16 +48,30 @@ import { WordPictureCard } from './WordPictureCard';
 interface BattleScreenProps {
   zoneId: ZoneId;
   progress: PlayerProgress;
-  onRecordWord: (wordId: string, meta: { usedHelp: boolean; wrongAttempts: number }) => void;
+  onRecordWord: (
+    wordId: string,
+    meta: { usedHelp: boolean; wrongAttempts: number; focusWord: string },
+  ) => void;
+  onPokemonCaught: (pokemonId: number, townName: string) => void;
   onBlendDone: () => void;
   onBattleComplete: (battle: BattleState) => void;
   onExit: () => void;
 }
 
+const ZONE_BIOME: Record<ZoneId, SceneBiome> = {
+  1: 'pallet',
+  2: 'viridian',
+  3: 'pewter',
+  4: 'center',
+  5: 'cerulean',
+  6: 'champion',
+};
+
 export const BattleScreen: React.FC<BattleScreenProps> = ({
   zoneId,
   progress,
   onRecordWord,
+  onPokemonCaught,
   onBlendDone,
   onBattleComplete,
   onExit,
@@ -67,7 +82,14 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
   const unlockedMoves = getUnlockedMoves(progress.totalStars);
 
   const [battle, setBattle] = useState<BattleState>(() =>
-    createBattleState(zoneId, progress.wordMastery, progress.selectedMoveId),
+    createBattleState(
+      zoneId,
+      progress.wordMastery,
+      progress.selectedMoveId,
+      Math.random,
+      undefined,
+      progress.caughtPokemonIds,
+    ),
   );
 
   const currentWord = getCurrentBattleWord(battle);
@@ -78,7 +100,7 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
       progress.settings.scaffoldMode,
       progress.wordMastery[first.id],
     );
-    return buildWordChallenge(first, scaffold);
+    return buildWordChallenge(first, scaffold, Math.random, progress.settings.tileMode);
   });
 
   const [eeveeMood, setEeveeMood] = useState<EeveeMood>('happy');
@@ -86,12 +108,11 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
   const [targetShrunk, setTargetShrunk] = useState(false);
   const [victoryReported, setVictoryReported] = useState(false);
 
-  // Refs for exact target-locked Poké Ball trajectory physics
   const arenaRef = useRef<HTMLElement | null>(null);
   const eeveeRef = useRef<HTMLDivElement | null>(null);
   const targetRef = useRef<HTMLDivElement | null>(null);
 
-  // Introduce each new word or clinic patient aloud automatically
+  // Introduce each new word or clinic patient aloud automatically using neural human voice
   useEffect(() => {
     if (!currentWord) return;
     setClinicWrongCount(0);
@@ -108,7 +129,9 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
         progress.settings.scaffoldMode,
         progress.wordMastery[currentWord.id],
       );
-      setChallenge(buildWordChallenge(currentWord, scaffold));
+      setChallenge(
+        buildWordChallenge(currentWord, scaffold, Math.random, progress.settings.tileMode),
+      );
       setEeveeMood('happy');
       void speechEngine.speakWordIntroduction(
         currentWord.displayWord,
@@ -117,22 +140,24 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [battle.currentWordIndex, battle.phase, battle.words]);
+  }, [battle.currentWordIndex, battle.phase, battle.words, progress.settings.tileMode]);
 
-  // Play town-specific VFX sound & transition after payoff animation
+  // Play town-specific VFX sound, save catch immediately, and advance after animation
   useEffect(() => {
     if (battle.phase !== 'move-animation' || !currentWord) return undefined;
     setEeveeMood('cheering');
 
     if (battle.challengeMode === 'wild-catch' || battle.challengeMode === 'forest-trail') {
       soundEffects.playPokeBallThrow();
+      // Beat 5 (2480ms): After 3 distinct wiggles, front capture light clicks on & saves catch immediately!
       const catchBell = window.setTimeout(() => {
         soundEffects.playCatchSuccess();
-        void speechEngine.speak(`Gotcha! ${currentWord.pokemonName} joined your team!`);
-      }, 1580);
+        void speechEngine.speakCaught(currentWord.pokemonName);
+        onPokemonCaught(currentWord.pokemonId, zone.name);
+      }, 2480);
       const doneTimer = window.setTimeout(() => {
         setBattle((prev) => finishBattleMoveAnimation(prev));
-      }, 2250);
+      }, 3300);
       return () => {
         window.clearTimeout(catchBell);
         window.clearTimeout(doneTimer);
@@ -141,39 +166,38 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
 
     if (battle.challengeMode === 'clinic-heal') {
       soundEffects.playHealingChime();
-      void speechEngine.speak(`All better! ${currentWord.pokemonName} feels great again!`);
+      void speechEngine.speakUiCue(
+        'all_better',
+        `All better! ${currentWord.pokemonName} feels great again!`,
+      );
+      onPokemonCaught(currentWord.pokemonId, zone.name);
       const doneTimer = window.setTimeout(() => {
         setBattle((prev) => finishBattleMoveAnimation(prev));
-      }, 1650);
+      }, 1750);
       return () => window.clearTimeout(doneTimer);
     }
 
-    if (battle.challengeMode === 'mart-quest') {
-      soundEffects.playCorrectPop();
-      void speechEngine.speak(`Packed ${currentWord.displayWord} into your bag!`);
-      const doneTimer = window.setTimeout(() => {
-        setBattle((prev) => finishBattleMoveAnimation(prev));
-      }, 1500);
-      return () => window.clearTimeout(doneTimer);
-    }
-
+    // Pewter Rock Gym, Cerulean Water Gym, Champion Stadium — Elemental Move Battle!
     soundEffects.playAttackSparkle(battle.activeMove.elementType);
     void speechEngine.speak(battle.activeMove.spokenCallout);
+    onPokemonCaught(currentWord.pokemonId, zone.name);
 
     const timer = window.setTimeout(() => {
       setBattle((prev) => finishBattleMoveAnimation(prev));
-    }, 1600);
+    }, 1700);
     return () => window.clearTimeout(timer);
-  }, [battle.phase, battle.challengeMode, battle.activeMove, currentWord]);
+  }, [battle.phase, battle.challengeMode, battle.activeMove, currentWord, onPokemonCaught, zone.name]);
 
-  // Report victory once when all Star Hearts are filled
+  // Report victory once when all 5 Star Hearts are filled
   useEffect(() => {
     if (battle.phase !== 'victory' || victoryReported) return;
     setVictoryReported(true);
     soundEffects.playVictoryFanfare();
-    const praise = getEncouragement('battle-victory');
-    setEeveeMood(praise.eeveeMood);
-    void speechEngine.speak(praise.speech);
+    setEeveeMood('cheering');
+    void speechEngine.speakUiCue(
+      'stage_win',
+      'Hooray! You finished the whole stage! Eevee is so proud of you!',
+    );
     onBattleComplete(battle);
   }, [battle, victoryReported, onBattleComplete]);
 
@@ -215,37 +239,34 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
   const handleWordBuilt = useCallback(
     (meta: { usedHelp: boolean; wrongAttempts: number }) => {
       if (!currentWord) return;
-      onRecordWord(currentWord.id, meta);
+      onRecordWord(currentWord.id, { ...meta, focusWord: currentWord.focusWord });
 
-      const event =
-        !meta.usedHelp && meta.wrongAttempts === 0
-          ? 'first-try-word'
-          : meta.usedHelp
-            ? 'help-used-word'
-            : 'perseverance-word';
-      const praise = getEncouragement(event, battle.currentWordIndex);
-      setEeveeMood(praise.eeveeMood);
-      void speechEngine.speak(praise.speech);
+      const isFirstTry = !meta.usedHelp && meta.wrongAttempts === 0;
+      setEeveeMood(isFirstTry ? 'sparkle' : 'happy');
+      void speechEngine.speakUiCue(
+        isFirstTry ? 'first_try' : 'great_job',
+        isFirstTry
+          ? 'Woohoo! You spelled it on your first try! Now slide to blend!'
+          : "Awesome job! Now slide Eevee's paw to blend the sounds!",
+      );
 
       setBattle((prev) => completeBattleWordSpelling(prev, meta));
     },
-    [battle.currentWordIndex, currentWord, onRecordWord],
+    [currentWord, onRecordWord],
   );
 
   const handleBlendComplete = useCallback(() => {
     onBlendDone();
     setEeveeMood('cheering');
-    const prompt =
-      battle.challengeMode === 'wild-catch' || battle.challengeMode === 'forest-trail'
-        ? `Tap the Poké Ball to catch ${currentWord?.pokemonName ?? 'your pal'}!`
-        : battle.challengeMode === 'clinic-heal'
-          ? `Tap Heal to cure ${currentWord?.pokemonName ?? 'your pal'}!`
-          : battle.challengeMode === 'mart-quest'
-            ? `Tap Pack to put it in your bag!`
-            : `Tap ${battle.activeMove.name}!`;
-    void speechEngine.speak(prompt);
+    if (battle.challengeMode === 'wild-catch' || battle.challengeMode === 'forest-trail') {
+      void speechEngine.speakUiCue('throw_ball', 'Awesome blend! Tap the Poké Ball to throw!');
+    } else if (battle.challengeMode === 'clinic-heal') {
+      void speechEngine.speakUiCue('heal_now', 'Smooth blend! Tap Heal to help your Pokémon!');
+    } else {
+      void speechEngine.speakUiCue('launch_move', 'Smooth blend! Tap your move to shine in battle!');
+    }
     setBattle((prev) => completeBattleWordBlending(prev));
-  }, [battle.activeMove.name, battle.challengeMode, currentWord, onBlendDone]);
+  }, [battle.challengeMode, onBlendDone]);
 
   const handleTriggerPayoff = () => {
     setBattle((prev) => triggerBattlePayoffAction(prev));
@@ -261,6 +282,9 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
       zoneId,
       progress.wordMastery,
       progress.selectedMoveId,
+      Math.random,
+      undefined,
+      progress.caughtPokemonIds,
     );
     setVictoryReported(false);
     setTargetShrunk(false);
@@ -281,8 +305,9 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
       aria-label={`Zone ${zone.id}: ${zone.name}`}
     >
       <div className="scene-scrim" />
+      <AmbientSceneLayer biome={ZONE_BIOME[zoneId]} />
 
-      {/* Minimal Top Bar: < | Town Name | 3 Stars */}
+      {/* Top Bar: < Map | Town Name | 5 Star Hearts */}
       <div className="scene-top-bar">
         <button
           id="btn-battle-back"
@@ -306,16 +331,16 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
           {Array.from({ length: battle.targetStarHearts }).map((_, idx) => (
             <StarIcon
               key={idx}
-              size={22}
+              size={20}
               filled={idx < battle.starHeartsFilled}
             />
           ))}
         </div>
       </div>
 
-      {/* Upper Full-Bleed Painted Kanto Arena */}
+      {/* Upper Living Painted Kanto Arena */}
       <section ref={arenaRef} className="scene-arena" aria-label={`${zone.name} arena`}>
-        {/* Left Side: Eevee on Sunlit Ground Shadow */}
+        {/* Left Side: Partner Eevee */}
         <div
           ref={eeveeRef}
           className={`scene-actor scene-actor--left ${isLunging ? 'scene-actor--lunge' : ''}`}
@@ -326,9 +351,12 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
             mood={eeveeMood}
             equipped={progress.equippedAccessories}
           />
+          <div className="actor-nameplate">
+            <span className="actor-nameplate__name">Eevee</span>
+          </div>
         </div>
 
-        {/* Right Side: Wild Pokémon / Clinic Patient / Gym Opponent */}
+        {/* Right Side: Wild Pokémon / Sick Clinic Patient / Gym Challenger with Visible Nameplate! */}
         {currentWord && battle.phase !== 'victory' && (
           <div
             ref={targetRef}
@@ -342,35 +370,57 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
             }}
           >
             <div className="actor-ground-shadow" />
-            <div className="scene-target-visual">
-              {currentWord.itemSlug && battle.challengeMode === 'mart-quest' && (
-                <div className="floating-item-orb">
-                  <ItemSprite
-                    itemSlug={currentWord.itemSlug}
-                    label={currentWord.displayWord}
-                    accentColor={zone.accentColor}
-                    size={46}
-                  />
-                </div>
-              )}
+            <div
+              className={`scene-target-visual ${
+                battle.clinicPatient && battle.phase !== 'move-animation'
+                  ? `scene-target-visual--${battle.clinicPatient.status.toLowerCase()}`
+                  : ''
+              }`}
+            >
               <PokemonSprite
                 pokemonId={currentWord.pokemonId}
                 name={currentWord.pokemonName}
                 size={146}
               />
+
+              {/* Live Animated Status Effect Overlay on Sick Clinic Patients! */}
+              {battle.clinicPatient && (
+                <StatusEffectOverlay
+                  status={battle.clinicPatient.status}
+                  cured={battle.phase === 'move-animation'}
+                />
+              )}
             </div>
 
-            {battle.clinicPatient && (
-              <div className="actor-nameplate">
+            {/* Always-Visible Tappable Pokémon Nameplate (tap to hear human pronunciation!) */}
+            <button
+              type="button"
+              className="actor-nameplate actor-nameplate--btn"
+              data-testid="target-pokemon-nameplate"
+              onClick={(e) => {
+                e.stopPropagation();
+                soundEffects.playTileTap();
+                void speechEngine.speakPokemon(currentWord.pokemonName);
+              }}
+              aria-label={`Hear Pokémon name ${currentWord.pokemonName}`}
+            >
+              <span className="actor-nameplate__name">{currentWord.pokemonName}</span>
+              {battle.clinicPatient && (
                 <span className={`status-pill status-pill--${battle.clinicPatient.status}`}>
-                  {battle.clinicPatient.status}
+                  {battle.clinicPatient.statusLabel}
                 </span>
-              </div>
-            )}
+              )}
+              {!battle.clinicPatient && currentWord.elementType && (
+                <span className={`type-pill type-pill--${currentWord.elementType}`}>
+                  {currentWord.elementType}
+                </span>
+              )}
+              <SpeakerIcon size={14} color="#2C98F0" />
+            </button>
           </div>
         )}
 
-        {/* True Target-Locked 5-Beat Poké Ball Capture Physics */}
+        {/* Authentic 3-Wiggle + Front Capture Light Poké Ball Physics */}
         {isCatchAnimation && currentWord && (
           <PokeBallCaptureLayer
             arenaRef={arenaRef}
@@ -381,7 +431,7 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
           />
         )}
 
-        {/* Non-Catch Town Payoff VFX (Nurse Joy Heal, Mart Pack, Gym Elemental Moves) */}
+        {/* Clinic Healing & Gym Elemental Move VFX */}
         {battle.phase === 'move-animation' && !isCatchMode && currentWord && (
           <SceneVfxLayer
             mode={battle.challengeMode}
@@ -395,7 +445,7 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
 
       {/* Bottom Compact Floating Nintendo Switch Action Tray */}
       <section className="scene-bottom-drawer scene-bottom-drawer--minimal" aria-label="Challenge controls">
-        {/* Optional Move Picker Pills for Gym Battles */}
+        {/* Move Picker Pills for Gym Battles */}
         {(battle.challengeMode === 'gym-battle' ||
           battle.challengeMode === 'champion-gauntlet') &&
           unlockedMoves.length > 1 &&
@@ -416,18 +466,31 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
             </div>
           )}
 
-        {/* Zone 4 Clinic Step 1: Pick the right curative bottle */}
+        {/* Zone 4 Clinic Step 1: Visually diagnose status effect & pick curative bottle */}
         {battle.phase === 'clinic-pick' && battle.clinicPatient && (
           <div className="drawer-inner-center">
-            <button
-              type="button"
-              className="icon-circle-btn icon-circle-btn--blue"
-              style={{ width: '48px', height: '48px' }}
-              onClick={() => void speechEngine.speak(battle.clinicPatient!.prompt)}
-              aria-label="Hear patient hint"
-            >
-              <SpeakerIcon size={22} color="#FFFFFF" />
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <button
+                type="button"
+                className="icon-circle-btn icon-circle-btn--blue"
+                style={{ width: '44px', height: '44px' }}
+                onClick={() => void speechEngine.speak(battle.clinicPatient!.prompt)}
+                aria-label="Hear patient diagnosis"
+              >
+                <SpeakerIcon size={20} color="#FFFFFF" />
+              </button>
+              <span
+                style={{
+                  fontFamily: 'var(--font-display)',
+                  fontWeight: 700,
+                  fontSize: '1.05rem',
+                  color: 'var(--ink-primary)',
+                }}
+              >
+                {currentWord?.pokemonName} is {battle.clinicPatient.statusLabel}! Pick the cure:
+              </span>
+            </div>
+
             <div className="clinic-tray" role="group" aria-label="Nurse Joy Medicine Pocket">
               {battle.clinicPatient.choices.map((med) => {
                 const isTarget = med.id === battle.clinicPatient!.targetCurative.id;
@@ -450,7 +513,7 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
                         itemSlug={med.itemSlug}
                         label={med.label}
                         accentColor={med.accentColor}
-                        size={38}
+                        size={40}
                       />
                     </span>
                     <span className="menu-card-btn__label">{med.label}</span>
@@ -461,7 +524,7 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
           </div>
         )}
 
-        {/* Spelling Stage: Picture Card + Elkonin Boxes + Ceramic Keycaps + Icon Buttons */}
+        {/* Spelling Stage: Picture + First Letter + Single-Letter Tiles */}
         {battle.phase === 'spelling' && currentWord && (
           <ElkoninBoard
             challenge={challenge}
@@ -482,9 +545,7 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
               label={currentWord.displayWord}
               caption={currentWord.focusWord}
               size="sm"
-              onTap={() =>
-                void speechEngine.speak(currentWord.displayWord.toLowerCase())
-              }
+              onTap={() => void speechEngine.speakWord(currentWord.displayWord)}
             />
             <PawSlideBlender
               units={currentWord.units}
@@ -500,7 +561,7 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
           </div>
         )}
 
-        {/* Stable Word Reward Card during Move/Capture Animation (prevents layout jump!) */}
+        {/* Stable Word Reward Card during Move/Capture Animation */}
         {battle.phase === 'move-animation' && currentWord && (
           <div className="drawer-inner-center" style={{ padding: '4px 0' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
@@ -511,7 +572,7 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
                 label={currentWord.displayWord}
                 caption={currentWord.displayWord}
                 size="sm"
-                onTap={() => void speechEngine.speak(currentWord.displayWord.toLowerCase())}
+                onTap={() => void speechEngine.speakWord(currentWord.displayWord)}
               />
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                 <div style={{ display: 'flex', gap: '8px' }}>
@@ -559,11 +620,6 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
                   <HeartIcon size={24} color="#FFFFFF" />
                   <span>Heal {currentWord.pokemonName}!</span>
                 </>
-              ) : battle.challengeMode === 'mart-quest' ? (
-                <>
-                  <SparkleIcon size={24} color="#FFFFFF" />
-                  <span>Pack in Bag!</span>
-                </>
               ) : (
                 <>
                   <SparkleIcon size={24} color="#FFFFFF" />
@@ -585,10 +641,10 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
               style={{
                 margin: 0,
                 fontFamily: 'var(--font-display)',
-                fontSize: '1.6rem',
+                fontSize: '1.55rem',
               }}
             >
-              {zone.name} ★ +{battle.totalStarsEarned}
+              {zone.name} Complete! ★ +{battle.totalStarsEarned}
             </h2>
 
             <div
@@ -597,13 +653,13 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
                 alignItems: 'center',
                 justifyContent: 'center',
                 flexWrap: 'wrap',
-                gap: '12px',
+                gap: '10px',
               }}
             >
               {battle.words.map((w) => (
                 <div key={w.id} className="victory-pal-chip">
-                  <PokemonSprite pokemonId={w.pokemonId} name={w.pokemonName} size={52} />
-                  <span>{w.displayWord}</span>
+                  <PokemonSprite pokemonId={w.pokemonId} name={w.pokemonName} size={46} />
+                  <span>{w.pokemonName}</span>
                 </div>
               ))}
             </div>
@@ -623,7 +679,7 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
                 className="switch-cta switch-cta--blue"
                 onClick={handlePlayAgain}
               >
-                Play Again
+                Play More Words
               </button>
             </div>
           </div>

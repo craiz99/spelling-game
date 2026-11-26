@@ -10,8 +10,9 @@ import {
 
 interface TopHudProps {
   totalStars: number;
-  bagItemsCount: number;
+  caughtPokemonCount: number;
   voiceMuted: boolean;
+  onOpenPokedex: () => void;
   onOpenStickerBook: () => void;
   onOpenCloset: () => void;
   onToggleMute: () => void;
@@ -21,13 +22,15 @@ interface TopHudProps {
 const HOLD_DURATION_MS = 1000;
 
 /**
- * Minimal, floating Nintendo Switch HUD pills overlaid lightly at the top corners
- * so the painted Kanto scenery fills the screen edge-to-edge!
+ * Floating Nintendo Switch HUD pills overlaid lightly at the top corners:
+ * - Top-Left: Star Stickers count + clickable My Captured Pokémon Pokédex button!
+ * - Top-Right: Book (Badges & Words), Eevee Closet, Mute toggle, and Grown-Up Settings
  */
 export const TopHud: React.FC<TopHudProps> = ({
   totalStars,
-  bagItemsCount,
+  caughtPokemonCount,
   voiceMuted,
+  onOpenPokedex,
   onOpenStickerBook,
   onOpenCloset,
   onToggleMute,
@@ -78,14 +81,20 @@ export const TopHud: React.FC<TopHudProps> = ({
           <span>{totalStars}</span>
         </div>
 
-        <div
-          className="hud-stat-pill hud-stat-pill--bag"
-          aria-label={`${bagItemsCount} items in Adventure Bag`}
-          title="Items in your Adventure Bag"
+        <button
+          id="hud-pokedex-btn"
+          type="button"
+          className="hud-circle-btn hud-pokedex-btn"
+          onClick={onOpenPokedex}
+          aria-label={`My Captured Pokémon: ${caughtPokemonCount}. Tap to view Pokédex.`}
+          title="My Captured Pokémon"
         >
-          <PokeBallIcon size={18} color="#2C98F0" />
-          <span>{bagItemsCount}</span>
-        </div>
+          <PokeBallIcon size={20} color="#E64545" />
+          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700 }}>
+            {caughtPokemonCount}
+          </span>
+          <span className="hud-circle-btn__text">Pokémon</span>
+        </button>
       </div>
 
       <div className="floating-hud__group">
